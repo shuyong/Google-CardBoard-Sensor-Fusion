@@ -1,0 +1,1950 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass ctex-article
+\begin_preamble
+% 如果没有这一句命令，XeTeX会出错，原因参见
+% http://bbs.ctex.org/viewthread.php?tid=60547
+\DeclareRobustCommand\nobreakspace{\leavevmode\nobreak\ }
+\end_preamble
+\options UTF8,fontset=founder
+\use_default_options true
+\maintain_unincluded_children false
+\language chinese-simplified
+\language_package none
+\inputencoding utf8-plain
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts true
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures false
+\graphics default
+\default_output_format pdf4
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref true
+\pdf_title "Head Tracking for the Oculus Rift"
+\pdf_author "Steven M. LaValle, Anna Yershova, Max Katsev, Michael Antonov"
+\pdf_bookmarks true
+\pdf_bookmarksnumbered false
+\pdf_bookmarksopen false
+\pdf_bookmarksopenlevel 1
+\pdf_breaklinks true
+\pdf_pdfborder false
+\pdf_colorlinks false
+\pdf_backref false
+\pdf_pdfusetitle true
+\papersize a4paper
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Head Tracking for the Oculus Rift
+\end_layout
+
+\begin_layout Author
+Steven M.
+ LaValle, Anna Yershova, Max Katsev, Michael Antonov
+\end_layout
+
+\begin_layout Date
+2016
+\end_layout
+
+\begin_layout Abstract
+我们提出了使用低成本的MEMS传感器有效地保持人的头部定位的方法。我们特别讨论了利用重力场和磁场进行陀螺积分和航位推算误差补偿的问题。尽管这些问题已经得到了很好
+的研究，但我们的性能标准经过了特别调整，以优化用户体验，同时跟踪Oculus Rift Development Kit中的头部运动，该套件是迄今为止使用最广泛的
+虚拟现实头戴式设备。我们还提出了新的预测跟踪方法，大大减少了有效延迟(时间延迟)，这进一步改善了用户体验。实验结果显示，以及正在进行的位置跟踪研究。
+\end_layout
+
+\begin_layout Section
+简介
+\end_layout
+
+\begin_layout Standard
+2012年6月，随着约翰·卡马克(John Carmack)在电子娱乐博览会(E3)上开发并展示了一个引人注目的厄运演示，帕默·卢基(Palmer
+ Luckey)的原型头戴式设备为变革性虚拟现实(VR)带来了广泛的热情和希望。这让业界领袖确信，通过利用智能手机行业的MEMS传感和视频显示技术，可以获得低成
+本、高保真的虚拟现实体验。设计的一个重要方面是广角视角，这大大增加了大多数先前头戴式设备的沉浸感。自那时以来，势头不断增强，媒体广泛报道了消费者虚拟现实的潜力、
+50000个Oculus Rift Development Kits的分散以及世界各地开发人员和研究人员的积极合作。虽然最初的目标是游戏产业，但它已经在艺术、娱
+乐、医学、建筑、军事和机器人等领域得到了更广泛的应用。在机器人技术中，最有潜力的是远程呈现，在远程呈现中，可以保持与机器人的便携式虚拟现实接口，以允许基于虚拟现
+实的远程会议、旅行，甚至是ICRA等会议的虚拟出席。此外，机器人学家从其他行业借用新的传感器和设备并找到令人兴奋的新用途的历史由来已久；例如Sick
+ Laser、Kinect和Wii Remote。
+\end_layout
+
+\begin_layout Standard
+Fig.
+ 1.
+ The Oculus Rift Development Kit tracks head movement to present the correct
+ virtual-world image to the eyes.
+\end_layout
+
+\begin_layout Standard
+同时，让Rift工作的一个问题是机器人学家非常熟悉的核心挑战：本地化[1]。但是，它的虚拟现实版本有特殊的要求[2]。虚拟现实通过调整物理世界和虚拟世界之间的坐
+标系来工作。在虚拟世界中保持用于渲染的相机姿势需要对头部方向进行感知和过滤。包括头部位置，进一步协调物理和虚拟世界，以改善体验。因为虚拟现实在愚弄大脑，所以必须
+以一种最小化的方式跟踪大脑感觉的产物。除了精度外，提供稳定的运动也尤为重要。另一个挑战是减少延迟，这是移动头部和在用户视网膜上产生正确变化之间的时间。到目前为止
+，潜伏期一直是导致虚拟现实模拟器疾病的关键因素。在我们的例子中，这些特殊的挑战必须通过一个简单的基于MEMS的惯性测量单元(IMU)来克服。
+\end_layout
+
+\begin_layout Standard
+本文介绍了我们的头部跟踪挑战、解决方案、实验数据，并重点介绍了一些剩余的研究问题。
+\end_layout
+
+\begin_layout Section
+硬件
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:硬件"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Fig.
+ 2.
+ The custom sensor board inside of the Rift.
+\end_layout
+
+\begin_layout Standard
+所有的感应都是由一个电路板执行的，如图2所示。主要部件有：
+\end_layout
+
+\begin_layout Itemize
+STMicroelectronics 32F103C8 ARM Cortex-M3 mi- crocontroller
+\end_layout
+
+\begin_layout Itemize
+Invensense MPU-6000 (gyroscope + accelerometer)
+\end_layout
+
+\begin_layout Itemize
+Honeywell HMC5983 magnetometer.
+\end_layout
+
+\begin_layout Standard
+微控制器通过USB连接传感器芯片和PC机。每个陀螺仪(gyro)、加速度计和磁强计提供三轴测量。传感器观测报告表明需要
+\begin_inset Formula $1000Hz$
+\end_inset
+
+的速率
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The magnetometer readings, however, only change at a rate of 
+\begin_inset Formula $220Hz$
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+。因此，我们将时间
+\begin_inset Formula $t$
+\end_inset
+
+离散为长度
+\begin_inset Formula $\Delta t=0.001s$
+\end_inset
+
+的间隔。第
+\begin_inset Formula $k$
+\end_inset
+
+阶段对应于时间
+\begin_inset Formula $k\Delta t$
+\end_inset
+
+，此时，在每一个时间点得到三维测量：
+\end_layout
+
+\begin_layout Itemize
+角速度：
+\begin_inset Formula $\tilde{\omega}[k]\;\mathrm{rad}/\sec$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+线加速度：
+\begin_inset Formula $\tilde{a}[k]\;m/s^{2}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+磁场强度：
+\begin_inset Formula $\tilde{m}[k]\;Gauss$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Standard
+在每一个微处理器操作步骤还提供的温度和时间。
+\end_layout
+
+\begin_layout Section
+陀螺积分与漂移
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:陀螺积分与漂移"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+从现在起到第
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:位置跟踪"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+节，我们考虑与位置相反的当前头部方向估计问题。每个方向可以表示为一个
+\begin_inset Formula $3\times3$
+\end_inset
+
+的旋转矩阵。用
+\begin_inset Formula $SO(3)$
+\end_inset
+
+表示所有旋转矩阵的集合，这是我们的滤波器操作的空间。
+\end_layout
+
+\begin_layout Standard
+所以，根据欧拉旋转定理，任何三维方向都可以通过原点绕一个特定轴旋转而产生。这个轴角(axis-angle)表示自然地映射到单位四元数的空间，如
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+q(v,\theta)=(\cos(\theta/2),v_{x}\sin(\theta/2),v_{y}\sin(\theta/2),v_{z}\sin(\theta/2))
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+其中
+\begin_inset Formula $q(v,\theta)$
+\end_inset
+
+表示单位长度四元数，对应于围绕单位长度轴矢量
+\begin_inset Formula $v=(v_{x},v_{y},v_{z})$
+\end_inset
+
+，旋转
+\begin_inset Formula $\theta$
+\end_inset
+
+弧度。(请注意，
+\begin_inset Formula $q(v,\theta)$
+\end_inset
+
+和
+\begin_inset Formula $-q(v,\theta)$
+\end_inset
+
+表示相同的旋转，这是经过仔细处理的。)
+\end_layout
+
+\begin_layout Standard
+四元数表示允许在正确保留代数运算的同时，无奇异性地操纵参数较少的旋转。利用陀螺测量数据建立一种数值稳定的航位推算方法也是非常关键的。设
+\begin_inset Formula $\omega=(\omega_{x},\omega_{y},\omega_{z})$
+\end_inset
+
+为当前角速度，单位为
+\begin_inset Formula $\mathrm{radians}/\sec$
+\end_inset
+
+。根据角速度的定义，设
+\begin_inset Formula $\omega$
+\end_inset
+
+的模长为
+\begin_inset Formula $l=\left\Vert \omega\right\Vert $
+\end_inset
+
+。根据角速度的定义：
+\end_layout
+
+\begin_layout Itemize
+当前旋转轴(单位长度)为
+\begin_inset Formula $\dfrac{1}{l}\omega$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+模长
+\begin_inset Formula $l$
+\end_inset
+
+是绕该轴旋转的速率。
+\end_layout
+
+\begin_layout Standard
+从李代数的经典关系到与之相关的李群[3]，速度的轴角表示可以被整合，以保持方向的轴角表示，这可以方便地表示为四元数。详情如下。
+\end_layout
+
+\begin_layout Standard
+假设
+\begin_inset Formula $q[k]$
+\end_inset
+
+是一个四元数，它外在地表示在
+\begin_inset Formula $k$
+\end_inset
+
+阶段，相对于固定世界坐标系的Rift(或传感器)的方向。设
+\begin_inset Formula $\tilde{\omega}[k]$
+\end_inset
+
+为在
+\begin_inset Formula $k$
+\end_inset
+
+阶段的陀螺仪读数。
+\begin_inset Formula $\hat{q}[k]$
+\end_inset
+
+表示估计的方向。假设
+\begin_inset Formula $\hat{q}[0]$
+\end_inset
+
+为初始单位四元数。设
+\begin_inset Formula $l=\left\Vert \tilde{\omega}[k]\right\Vert $
+\end_inset
+
+，而且
+\begin_inset Formula $v=\dfrac{1}{l}\tilde{\omega}[k]$
+\end_inset
+
+。因为
+\begin_inset Formula $l$
+\end_inset
+
+表示旋转速率 (
+\begin_inset Formula $\mathrm{radians}/\sec$
+\end_inset
+
+)，通过设置
+\begin_inset Formula $\theta=l\Delta t$
+\end_inset
+
+，我们得到一个简单的航位推算滤波器并且更新方程
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+注意，
+\begin_inset Formula $q(v,\theta)$
+\end_inset
+
+从右边乘，因为
+\begin_inset Formula $\tilde{\omega}[k]$
+\end_inset
+
+在局部传感器帧中表示。如果转换为全局帧，它将从左边乘。
+\end_layout
+
+\end_inset
+
+为
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\hat{q}[k+1]=\hat{q}[k]*q(v,\theta)\label{eq:2}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+其中
+\begin_inset Formula $*$
+\end_inset
+
+表示标准四元数乘法。这相当于简单的欧拉积分，但扩展到
+\begin_inset Formula $SO(3)$
+\end_inset
+
+。(这很容易扩展到梯形积分、辛普森法则和更复杂的数值积分公式，但在我们的应用中没有显著的性能增益。)
+\end_layout
+
+\begin_layout Standard
+常见的陀螺误差模型[4]是：
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\tilde{\omega}=\omega+S\omega+M\omega+b+n
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+其中
+\begin_inset Formula $S$
+\end_inset
+
+为标度因子误差，
+\begin_inset Formula $M$
+\end_inset
+
+为横轴耦合误差，
+\begin_inset Formula $b$
+\end_inset
+
+为零速率偏移(偏差)，
+\begin_inset Formula $n$
+\end_inset
+
+为零均值随机噪声。请注意，此模型忽略不太重要的误差源，包括线性加速度、板应力、非线性和量化的影响。
+\end_layout
+
+\begin_layout Standard
+可以将比例因子和横轴项组合起来生成一个简单的线性模型：
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\tilde{\omega}=K\omega+b
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $K$
+\end_inset
+
+和
+\begin_inset Formula $b$
+\end_inset
+
+的值可通过工厂校准确定；但是，由于校准程序存在缺陷，以及温度依赖性，因此无法完全消除相应的误差项。图3显示了在不同温度值下校准和不校准时的零速率偏移。注意，即使
+在校准之后，大多数误差也是系统性的，而不是随机噪声。
+\end_layout
+
+\begin_layout Standard
+Fig.
+ 3.
+ Stationary gyro output with and without calibration.
+\end_layout
+
+\begin_layout Standard
+随着时间的推移，我们预计航位推算误差会累积，这称为漂移误差(drift error)：
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+e[k]=\hat{q}[k]-q[k]
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+请注意，这也可以解释初始帧之间的差异：
+\begin_inset Formula $\hat{q}[0]-q[0]$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+恒场漂移校正
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:恒场漂移校正"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+需要陀螺以外的附加传感来降低漂移误差。第
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:倾斜校正"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+节和第
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:偏航校正"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+节的方法是基于将方向与贯穿传感器物理空间的固定不变矢量场对齐。每个方法都有特定的问题，但共同原则首先在这里介绍。
+\end_layout
+
+\begin_layout Standard
+假设Rift被放置在物理工作空间中，建模为
+\begin_inset Formula $\mathbb{R}^{3}$
+\end_inset
+
+。在该空间中，定义了一个常量向量场：
+\begin_inset Formula $f:\mathbb{R}^{3}\to\{w\}$
+\end_inset
+
+，其中
+\begin_inset Formula $w=(w_{x},w_{y},w_{z})$
+\end_inset
+
+。在每一个位置
+\begin_inset Formula $p\in\mathbb{R}^{3}$
+\end_inset
+
+，场产生相同的值，
+\begin_inset Formula $f(p)=w$
+\end_inset
+
+。该场的大小对漂移校正没有影响。因此，不失一般性假设
+\begin_inset Formula $\left\Vert w\right\Vert =1$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Standard
+想象一个神奇的传感器被放置在Rift中，完美地测量了磁场。如果Rift位于同一方向，则观察到
+\begin_inset Formula $\tilde{w}=w$
+\end_inset
+
+。但是，如果Rift位于任意方向
+\begin_inset Formula $q$
+\end_inset
+
+，则使用传感器反向旋转
+\begin_inset Formula $q^{-1}$
+\end_inset
+
+(这是
+\begin_inset Formula $q$
+\end_inset
+
+的共轭)转换观测。得出的观测结果是
+\begin_inset Formula $\tilde{w}=q*w*q^{-1}$
+\end_inset
+
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+对于四元数矢量乘法，我们假设将矢量转换为四元数是
+\begin_inset Formula $(0,w_{x},w_{y},w_{z})$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+。使用旋转矩阵，对于旋转矩阵
+\begin_inset Formula $R$
+\end_inset
+
+，这将是
+\begin_inset Formula $\tilde{w}=R^{t}w$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\tilde{w}$
+\end_inset
+
+与
+\begin_inset Formula $w$
+\end_inset
+
+之间的差异显然包含了关于Rift方向的有力信息，但有哪些限制？考虑以下传感器映射：
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+f:SO(3)\to\mathbb{R}^{3}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+根据方向
+\begin_inset Formula $q$
+\end_inset
+
+，其中场
+\begin_inset Formula $\tilde{w}=h(q)$
+\end_inset
+
+作为观测矢量。问题是映射的预映像[5]
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+更精确地说，我们应该写
+\begin_inset Formula $R\in SO(3)$
+\end_inset
+
+，其中
+\begin_inset Formula $R$
+\end_inset
+
+是
+\begin_inset Formula $q$
+\end_inset
+
+对应的旋转矩阵。
+\end_layout
+
+\end_inset
+
+：
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+h^{-1}(\tilde{w})=\{q\in SO(3)|h(q)=\tilde{w}\}\label{eq:7}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+换句话说：考虑产生相同传感器观测的所有方向的集合。每个预成像通常是一个一维集合，通过围绕平行于
+\begin_inset Formula $w$
+\end_inset
+
+的轴旋转，为每个预成像生成
+\begin_inset Formula $\tilde{w}$
+\end_inset
+
+。这并不奇怪，因为
+\begin_inset Formula $w$
+\end_inset
+
+所有可能方向的集合是二维的，而
+\begin_inset Formula $SO(3)$
+\end_inset
+
+是三维的。
+\end_layout
+
+\begin_layout Standard
+实际上，我们没有神奇的磁场传感器。由于校准误差、精度和噪声，实际传感器存在局限性。此外，它们不幸地测量了多个重叠的场，使得提取正确的信息变得困难。接下来的两个部
+分针对基于重力和磁场的漂移校正方法来处理这些问题。
+\end_layout
+
+\begin_layout Section
+倾斜校正
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:倾斜校正"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+本节介绍了修正倾斜度误差的方法，倾斜度误差是物理世界中除绕垂直轴旋转以外的所有漂移误差的组成部分，它导致感知到的水平面不水平。按照第
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:恒场漂移校正"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+节所述的方式，利用重力作为恒定矢量场进行校正。在这种情况下，预成像方程(
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:7"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+)对应于平行于重力矢量的轴的旋转。
+\end_layout
+
+\begin_layout Standard
+在一个理想的世界里，我们希望有一个完美的重力场传感器。它总是提供
+\begin_inset Formula $9.81m/s^{2}$
+\end_inset
+
+的矢量，其方向指示倾斜度。事实上，地球的重力场在其表面的重力大小和方向上都有轻微的偏差。不过，这些偏差很小，我们目前忽略了它们。更糟糕的问题是，加速度计测量的是
+所有加速度的总和(见图4(a))：
+\begin_inset Formula $a=a_{g}+a_{l}$
+\end_inset
+
+，其中
+\begin_inset Formula $a_{g}$
+\end_inset
+
+是由于重力引起的加速度，
+\begin_inset Formula $a_{l}$
+\end_inset
+
+是头部相对于地球的线性加速度。
+\end_layout
+
+\begin_layout Standard
+Fig.
+ 4.
+ (a) Accelerometers necessarily measure the vector sum of acceleration due
+ to gravity and linear acceleration of the sensor with respect to Earth.
+ (b) To determine tilt error angle 
+\begin_inset Formula $\phi$
+\end_inset
+
+, the tilt axis is calculated, which lies in the horizontal, 
+\begin_inset Formula $XZ$
+\end_inset
+
+ plane.
+\end_layout
+
+\begin_layout Standard
+假设没有线性加速度。在这种情况下，
+\begin_inset Formula $\tilde{a}$
+\end_inset
+
+是对重力矢量的直接估计；但是，这是在传感器的局部坐标系中测量的。该转换
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\hat{a}=q^{-1}*\tilde{a}*q
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+使其回到全局坐标系。注意，这与头部方向相反。每个倾斜误差都可以描述为围绕水平
+\begin_inset Formula $XZ$
+\end_inset
+
+面上的轴旋转；见图4(b)。要计算旋转轴，将
+\begin_inset Formula $\hat{a}$
+\end_inset
+
+投影到
+\begin_inset Formula $XZ$
+\end_inset
+
+平面中以获得
+\begin_inset Formula $(\hat{a}_{x},0,\hat{a}_{z})$
+\end_inset
+
+。倾斜轴是正交的：
+\begin_inset Formula $t=(\hat{a}_{x},0,-\hat{a}_{z})$
+\end_inset
+
+。倾斜误差
+\begin_inset Formula $\theta$
+\end_inset
+
+是
+\begin_inset Formula $\hat{a}$
+\end_inset
+
+和矢量
+\begin_inset Formula $(0,1,0)$
+\end_inset
+
+之间的角度。
+\end_layout
+
+\begin_layout Standard
+在存在运动的情况下，我们不能在短期内信任加速度计数据。然而，在很长一段时间内，加速度计输出(在全局范围内)对重力方向产生了很好的估计。事实上，对于
+\begin_inset Formula $n$
+\end_inset
+
+个样品，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\begin{array}{rl}
+\left|\dfrac{1}{n}\Sigma_{k=1}^{n}\hat{a}[k]-a_{g}\right| & =\left|\dfrac{1}{n}\Sigma_{k=1}^{n}(a_{g}+a_{l}[k])-a_{g}\right|\\
+ & =\left|\dfrac{1}{n}\Sigma_{k=1}^{n}a_{l}[k]\right|\\
+ & =\dfrac{1}{n}\left|v[n]-v[1]\right|\\
+ & =O(1/n)
+\end{array}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+式中
+\begin_inset Formula $v[k]$
+\end_inset
+
+为阶段
+\begin_inset Formula $k$
+\end_inset
+
+上头戴式设备的速度，因为人体的生理限制而受到限制。为了进一步提高性能，通过去除与先前测量值显著不同的样本对数据进行预处理，因为组合加速度的突然变化更可能是由于运
+动而不是漂移引起的。
+\end_layout
+
+\begin_layout Standard
+陀螺在短期内是可靠的，但在长期内会发生漂移。将短期精度陀螺数据与长期精度加速度计数据相结合，我们应用一个互补滤波器[6]、[7]、[8]。这种特殊的选择是由基于
+感性实验的简单实现和调整所驱动的。设
+\begin_inset Formula $\hat{q}[k]$
+\end_inset
+
+是陀螺积分方程(
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:2"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+)得到的估计方位；带增益
+\begin_inset Formula $\alpha\ll1$
+\end_inset
+
+的互补滤波器的输出为
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\hat{q}'[k]=q(t,-\alpha\phi)*\hat{q}[k]
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+其中
+\begin_inset Formula $t$
+\end_inset
+
+是倾斜轴。
+\begin_inset Formula $\alpha$
+\end_inset
+
+参数应足够大，以纠正所有漂移，但应足够小，以便用户无法察觉修正。图5显示了典型使用期间的性能。
+\end_layout
+
+\begin_layout Standard
+Fig.
+ 5.
+ Tilt correction performance.
+ Ground truth data was collected using OptiTrack motion capture system.
+\end_layout
+
+\begin_layout Section
+偏航校正
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:偏航校正"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+本节介绍偏航误差，该误差与绕垂直轴旋转(与重力矢量平行)相对应。为了完成这项任务，我们依赖于使用第
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:硬件"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+节中提到的磁强计测量磁场。
+\end_layout
+
+\begin_layout Standard
+可以把磁强计看作暂时的指南针，它测量的矢量总是指向北方。然而，情况要复杂得多。首先，注意观察值
+\begin_inset Formula $\tilde{m}=(\tilde{m}_{x},\tilde{m}_{y},\tilde{m}_{z})$
+\end_inset
+
+是三维的。想象一下用传感器测量地球磁场。不幸的是，这个场不是常数，向量也不是指向北。地球表面的磁场强度从
+\begin_inset Formula $0.25\;\textrm{Gauss}$
+\end_inset
+
+到
+\begin_inset Formula $0.65\;\textrm{Gauss}$
+\end_inset
+
+不等。投影到水平面上的北向和场方向之间的差称为赤纬角。有些居住区的值可能高达
+\begin_inset Formula $25^{\circ}$
+\end_inset
+
+。更为复杂的是，场矢量指向上下倾斜的角度，角度变化达
+\begin_inset Formula $90^{\circ}$
+\end_inset
+
+。这就产生了两个问题：1)不知道地球上的位置就无法测量正北方向(没有使用GPS系统)，2)如果倾角接近
+\begin_inset Formula $90^{\circ}$
+\end_inset
+
+，那么磁场就不能用于偏航校正，因为它几乎与重力平行。幸运的是，这种情况只发生在人口最稀少的地区，如西伯利亚北部和南极海岸。
+\end_layout
+
+\begin_layout Standard
+然而，还有比这更复杂的。从第
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:倾斜校正"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+节回忆起，加速度计只测量两个源的矢量和。磁强计还测量几种来源的总和。电路板通常含有干扰磁场的铁质材料。可能存在硬铁偏差和软铁偏差[9]。在硬铁偏差的情况下，附近
+的材料产生自己的场，在传感器的坐标系中观察到一个恒定的偏移。在软铁偏差的情况下，材料会扭曲通过它们的现有磁场。大多数室内环境也含有足够的材料来产生磁场。因此，磁
+强计测量三种磁场的矢量和：
+\end_layout
+
+\begin_layout Enumerate
+传感器局部坐标系中的一个字段。
+\end_layout
+
+\begin_layout Enumerate
+存在于全局固定世界坐标系内的室内场地。
+\end_layout
+
+\begin_layout Enumerate
+地球磁场，也在全局范围内。
+\end_layout
+
+\begin_layout Standard
+所有这些都可能被软铁偏差扭曲。最后，由于电路或移动铁质材料(有人拿着磁铁走过)的接近，可能会存在其他异常现象。
+\end_layout
+
+\begin_layout Standard
+Fig.
+ 6.
+ A 2D slice of magnetometer output before and after calibration.
+\end_layout
+
+\begin_layout Standard
+图6显示了通过在单轴周围的一个位置旋转传感器获得的磁强计数据图。大致得到一个椭圆，其中偏心是由软铁偏差引起的。椭圆的中心因局部场而偏移。椭圆的大小取决于全局磁场
+，包括地球磁场。使用磁强计校正的一个问题是，地球磁场和室内磁场的矢量和大部分可能会被抵消，只留下一个小的量级。
+\end_layout
+
+\begin_layout Standard
+我们的方法基于以下原则：
+\end_layout
+
+\begin_layout Enumerate
+真正的北方是无关紧要的，因为我们不想在地球上航行；
+\end_layout
+
+\begin_layout Enumerate
+室内磁场和地球磁场的矢量和提供了有用的测量；
+\end_layout
+
+\begin_layout Enumerate
+使用中的校准程序可以消除由于局部磁场而产生的大部分偏移，而且还可以帮助解决软铁偏差；
+\end_layout
+
+\begin_layout Enumerate
+从不假设校准值是完全准确的；
+\end_layout
+
+\begin_layout Enumerate
+特定的场大小是无关的，除了噪声级以上的最小值的要求。
+\end_layout
+
+\begin_layout Standard
+基于这些考虑，我们开发了一种方法，首先校准磁强计，然后分配参考点检测偏航漂移。为了进行校准，我们可以要求用户向多个方向旋转裂缝，以获得足够的数据，以便对原始数据
+进行椭球的最小二乘拟合。然后使用基于椭球参数的仿射线性变换对原始值进行校正。另一种方法是只抓取四个分离良好的点，并通过它们计算出唯一的球体。在这种情况下，通过应
+用本地字段的估计偏移量来校正原始样本。这四个点甚至可以在实际使用中自动获得。这通常很有效，假设用户朝足够的方向看，并且由于软铁偏差而产生的偏心率很小。
+\end_layout
+
+\begin_layout Standard
+假设
+\begin_inset Formula $\tilde{m}$
+\end_inset
+
+现在是已通过校准进行校正的测量值。让
+\begin_inset Formula $\tilde{m}_{ref}$
+\end_inset
+
+为早期观察到的值(在大量漂移累积之前)。当观测到
+\begin_inset Formula $\tilde{m}_{ref}$
+\end_inset
+
+时，让
+\begin_inset Formula $\hat{q}_{ref}$
+\end_inset
+
+为相应的方位估计值。现在，假设随后观察到一个
+\begin_inset Formula $\tilde{m}$
+\end_inset
+
+值，就具有相关
+\begin_inset Formula $\hat{q}$
+\end_inset
+
+值。以下转换将两个读数带入估计的全局坐标系中：
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\begin{array}{c}
+\tilde{m}'=\hat{q}^{-1}\tilde{m}*\hat{q}\\
+\tilde{m}'_{ref}=\hat{q}_{ref}^{-1}*\tilde{m}_{ref}*\hat{q}_{ref}
+\end{array}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+如果磁强计进行了完美校准，且
+\begin_inset Formula $\tilde{m}'\approx\tilde{m}'_{ref}$
+\end_inset
+
+，则不会出现明显的漂移。我们在水平
+\begin_inset Formula $XZ$
+\end_inset
+
+面上投射出
+\begin_inset Formula $\tilde{m}'$
+\end_inset
+
+和
+\begin_inset Formula $\tilde{m}'_{ref}$
+\end_inset
+
+并计算出它们的角度差。更明确地说，
+\begin_inset Formula $\theta=\mathrm{atan2}(\tilde{m}'_{x},\tilde{m}'_{z})$
+\end_inset
+
+与
+\begin_inset Formula $\theta_{r}=\mathrm{atan2}(\tilde{m}'_{ref,x},\tilde{m}'_{ref,z})$
+\end_inset
+
+进行比较。一旦检测到误差，方法与第
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:倾斜校正"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+节中的方法相同，只是绕
+\begin_inset Formula $Y$
+\end_inset
+
+轴旋转进行校正。用于偏航校正的互补滤波器是
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\hat{q}'[k]=q((0,1,0)-\alpha_{2}(\theta-\theta_{r}))*\hat{q}[k]
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+其中
+\begin_inset Formula $\alpha_{2}$
+\end_inset
+
+是一个小增益常数，类似于倾斜校正的情况。
+\end_layout
+
+\begin_layout Standard
+为了应对校准不良(例如忽略偏心率)，我们要求
+\begin_inset Formula $\hat{q}$
+\end_inset
+
+接近
+\begin_inset Formula $\hat{q}_{ref}$
+\end_inset
+
+。否则，由于校准引起的误差将主导偏航漂移误差。这意味着只有当“接近”
+\begin_inset Formula $\hat{q}_{ref}$
+\end_inset
+
+时才能检测到偏航漂移。通过引入多个分散在
+\begin_inset Formula $SO(3)$
+\end_inset
+
+周围的参考点来解决这一限制。
+\end_layout
+
+\begin_layout Section
+预测性跟踪
+\end_layout
+
+\begin_layout Standard
+对于我们的系统来说，滤波系统在精确的时间
+\begin_inset Formula $t=k\Delta t$
+\end_inset
+
+确定
+\begin_inset Formula $q[k]$
+\end_inset
+
+是不够的。它必须在用户观察渲染输出时可靠地预测未来的方向。延迟间隔是从头部移动到视网膜上相应图像出现的时间。管道包括传感时间、USB数据到达时间、传感器融合时间
+、游戏模拟时间、渲染时间和视频输出时间。其他因素，如LCD像素切换时间、游戏复杂性和无意的帧缓冲可能会进一步延长它。
+\end_layout
+
+\begin_layout Standard
+在虚拟现实(VR)和增强现实(AR)系统中，延迟被广泛认为会引起模拟器疾病。通常所引用的延迟上限是
+\begin_inset Formula $60ms$
+\end_inset
+
+，以获得可接受的虚拟现实体验；但是，理想情况下，它应该低于
+\begin_inset Formula $20ms$
+\end_inset
+
+，以达到不可察觉的效果[10]。Carmack的时间扭曲方法[11]提供了一种降低有效延迟的方法。
+\end_layout
+
+\begin_layout Standard
+我们或者提出一种预测滤波方法。预测跟踪方法已经发展了几十年的VR和AR研究[12]、[13]、[14]，但由于难以进行运动建模、获取密集、准确的滤波器数据以及延
+迟间隔的长度，通常认为它们会给出混合的结果。尽管在历史上，延迟间隔长达
+\begin_inset Formula $100ms$
+\end_inset
+
+，但在现代环境中，由于传感和图形硬件的改进，延迟间隔在
+\begin_inset Formula $30$
+\end_inset
+
+到
+\begin_inset Formula $50ms$
+\end_inset
+
+之间。此外，MEMS陀螺仪提供了
+\begin_inset Formula $1000Hz$
+\end_inset
+
+的角速度的精确测量。我们发现预测滤波器只需要几毫秒的数据，并且在
+\begin_inset Formula $50ms$
+\end_inset
+
+内产生良好的性能。我们开发并比较了三种方法(见图 9)：
+\end_layout
+
+\begin_layout Enumerate
+无预测：只需向渲染器显示更新的四元数。
+\end_layout
+
+\begin_layout Enumerate
+恒定速率：假设当前测量的角速度在延迟期间保持恒定间隔。
+\end_layout
+
+\begin_layout Enumerate
+恒加速度：估计角加速度，并在延迟间隔内相应调整角速度。
+\end_layout
+
+\begin_layout Standard
+Fig.
+ 7.
+ Effect of correction methods on the overall drift.
+\end_layout
+
+\begin_layout Standard
+Fig.
+ 8.
+ A depiction of the three prediction methods in angular velocity space (represen
+ted as one axis).
+\end_layout
+
+\begin_layout Standard
+Fig.
+ 9.
+ The prediction error in degrees for a 20ms interval for the three methods.
+\end_layout
+
+\begin_layout Standard
+第一种方法假设头在延迟间隔期间是固定的。第二种方法在方程(
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:2"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+)中将
+\begin_inset Formula $\Delta t=0.001$
+\end_inset
+
+替换为
+\begin_inset Formula $\Delta t=0.021$
+\end_inset
+
+。第三种方法允许角速度在展望未来时以线性速度变化。角加速度是根据陀螺仪数据的变化来估计的(这通常是一个困难的问题[15]，但在我们的设置中工作得很好)。
+\end_layout
+
+\begin_layout Standard
+在长时间间隔内进行预测时，估计当前角速度的误差往往会放大。当头部旋转不快时，噪音引起的振动尤其明显。因此，在估算当前角速度(方法2和3)和当前角加速度(方法3)
+时，我们使用简单的平滑滤波器，如Savitzky-Golay滤波器，但其他许多方法也应适用。我们还缩短了较慢旋转的预测间隔。
+\end_layout
+
+\begin_layout Standard
+评估性能的一个简单方法是记录预测值，并在预测间隔过后将其与当前估计值进行比较。请注意，这与实际的地面真值不相比较，但它非常接近，因为陀螺积分的漂移误差率在预测间
+隔内非常小。我们比较了几种方法的性能，预测间隔在
+\begin_inset Formula $20ms$
+\end_inset
+
+到
+\begin_inset Formula $100ms$
+\end_inset
+
+之间。图9显示了在3秒间隔内使用传感器预测间隔
+\begin_inset Formula $20ms$
+\end_inset
+
+的误差(以度数计)。
+\end_layout
+
+\begin_layout Standard
+在数值上，预测
+\begin_inset Formula $20ms$
+\end_inset
+
+的角度误差为：
+\end_layout
+
+\begin_layout Standard
+\begin_inset Tabular
+<lyxtabular version="3" rows="4" columns="3">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Method
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Avg Error
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Worst Error
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $1.46302^{\circ}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $4.77900^{\circ}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $0.19395^{\circ}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $0.71637^{\circ}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $0.07596^{\circ}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $0.35879^{\circ}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+一名用户戴着Rift，相当快地来回转动头部，峰值速度约为
+\begin_inset Formula $240\mathrm{deg}/\sec$
+\end_inset
+
+。这与已发表的虚拟现实研究[13]、[14]中报告的峰值速度接近。
+\end_layout
+
+\begin_layout Standard
+在这些运动中，加速度峰值约为
+\begin_inset Formula $850\mathrm{deg}/\sec$
+\end_inset
+
+。典型的、较慢的运动，在典型应用中很常见，速度约为
+\begin_inset Formula $60\mathrm{deg}/\sec$
+\end_inset
+
+，峰值加速度约为
+\begin_inset Formula $500\mathrm{deg}/\sec^{2}$
+\end_inset
+
+。对于具有
+\begin_inset Formula $20ms$
+\end_inset
+
+预测间隔的慢速和快速运动，方法3通常优于其他方法。在另一个实验中，即使间隔为
+\begin_inset Formula $40ms$
+\end_inset
+
+，平均情况为
+\begin_inset Formula $0.17^{\circ}$
+\end_inset
+
+，最坏情况为
+\begin_inset Formula $0.51^{\circ}$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Section
+位置跟踪
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:位置跟踪"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+跟踪头部的位置，除了方向提供了一个更大的沉浸感在虚拟现实。仅使用第
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:硬件"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+节中描述的传感器提供准确的位置估计非常具有挑战性。使用更多的传感器，问题大大减轻，但成本增加。解决方案包括计算机视觉系统和IMU的身体套装。在我们的例子中，我们
+尝试使用一个IMU尽可能地推动位置估计。我们在此报告我们有限的成功和仍然存在的困难。阻碍进展的最大障碍之一是，我们所有传感器的传感器映射在其预图像中都包含恒定的
+线性速度。换句话说，我们的任何一个传感器都无法观测到以恒定线速度运动(除非磁场在小位移上是非恒定的)。
+\end_layout
+
+\begin_layout Standard
+位置跟踪的坐标系原点位于视网膜之间的中点。称之为视网膜中心坐标系(retinal center frame, RCF)。在没有位置信息的情况下，在左右眼视图被挤
+出形成立体对之前，该点在虚拟世界中保持不变。也就是说，RCF的位置总是
+\begin_inset Formula $p=0$
+\end_inset
+
+。一个一般策略是设计一个映射
+\begin_inset Formula $p=f(q)$
+\end_inset
+
+，其中
+\begin_inset Formula $q$
+\end_inset
+
+表示头部方向和
+\begin_inset Formula $p$
+\end_inset
+
+表示RCF的位置。换句话说，最可能的位置
+\begin_inset Formula $p$
+\end_inset
+
+由每个给定
+\begin_inset Formula $q$
+\end_inset
+
+方向指定。也许这种关系可以从大型数据集中学习。
+\end_layout
+
+\begin_layout Standard
+目前在Oculus Rift Software Development Kit (SDK)中使用的一个简单示例是将旋转中心移动到颈部底部，而不是在RCF处。这通
+过计算头部旋转时眼睛的位置偏移来改善体验(见图10(a))。如果从RCF到颈部底部的距离为
+\begin_inset Formula $l_{n}$
+\end_inset
+
+，则相应的映射为
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+p=f(q)=q*(0,l_{n},0)*q^{-1}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+如果虚拟现实体验需要人体大幅度运动，那么上述解决方案是不够的。使用加速度计来确定位置是很有诱惑力的。回想图4(a)，其中
+\begin_inset Formula $a=a_{g}+a_{l}$
+\end_inset
+
+。如果可以从观测矢量
+\begin_inset Formula $\tilde{a}$
+\end_inset
+
+中减去估算的重力矢量
+\begin_inset Formula $\tilde{a}_{g}$
+\end_inset
+
+，则余数对应于测量的线性加速度
+\begin_inset Formula $\tilde{a}_{l}$
+\end_inset
+
+。从基本计算中，加速度的双重积分产生位置。主要问题是偏移误差和对振动的极度敏感导致了快速漂移误差。加速度的固定偏移对应于双重积分后的二次误差增长(假设将虚拟推进
+器连接到您的头部！)
+\end_layout
+
+\begin_layout Standard
+一个有希望的可能性是使用运动约束来缩小潜在的运动范围。例如，如果已知用户坐在椅子上，则可以将其运动近似为两连杆空间机构，如图10所示。原点处的条代表躯干的长度
+\begin_inset Formula $l_{1}$
+\end_inset
+
+和方向
+\begin_inset Formula $q_{1}$
+\end_inset
+
+。第二根杆代表头部(和僵硬的脖子)。请注意，头部方向仍然是
+\begin_inset Formula $q$
+\end_inset
+
+，并且是使用前面章节中描述的方法计算的，独立于
+\begin_inset Formula $q_{1}$
+\end_inset
+
+。RCF位置计算如下：
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+p=f(q)=q*(0,l_{t},0)*q^{-1}+q*(0,l_{n},0)*q^{-1}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+用
+\begin_inset Formula $r_{1}$
+\end_inset
+
+和
+\begin_inset Formula $r$
+\end_inset
+
+分别表示上述第一项和第二项，得到
+\begin_inset Formula $p=r_{1}+r$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Standard
+Fig.
+ 10.
+ We enforce kinematic constraints to estimate position.
+\end_layout
+
+\begin_layout Standard
+接下来，我们根据测得头部的(在全局坐标系中的)线性加速度
+\begin_inset Formula $\tilde{a}_{l}$
+\end_inset
+
+来估算躯干的角速度
+\begin_inset Formula $\hat{\omega}_{1}$
+\end_inset
+
+。一旦计算出
+\begin_inset Formula $\hat{\omega}_{1}$
+\end_inset
+
+，可使用第
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:陀螺积分与漂移"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+节中的方法找到
+\begin_inset Formula $\hat{q}_{1}$
+\end_inset
+
+。该方法迭代计算并优化头部线性速度
+\begin_inset Formula $\hat{v}_{1}$
+\end_inset
+
+的估计值。首先，
+\begin_inset Formula $\hat{v}_{1}$
+\end_inset
+
+是通过
+\begin_inset Formula $\tilde{a}_{l}$
+\end_inset
+
+的积分来计算的。所得值可能会漂移，因此需要更新以适应运动模型。观察到
+\begin_inset Formula $\hat{v}_{1}$
+\end_inset
+
+是两个估计的速度的矢量和：
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\hat{v}_{1}=\hat{\omega}_{1}\times r_{1}+\hat{\omega}\times r
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+这个方程可以改写为一个不确定的线性方程组
+\begin_inset Formula $A\tilde{\omega}_{1}=b$
+\end_inset
+
+，带有一个单一的矩阵
+\begin_inset Formula $A$
+\end_inset
+
+。通过将右侧
+\begin_inset Formula $b$
+\end_inset
+
+投影到跨度
+\begin_inset Formula $A$
+\end_inset
+
+上，我们可以解出结果的系统
+\begin_inset Formula $A\tilde{\omega}_{1}=b_{A}$
+\end_inset
+
+，并使用
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\hat{v}_{1}=b_{A}+\hat{\omega}\times r
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+我们将此方法的性能与
+\begin_inset Formula $\tilde{a}_{l}$
+\end_inset
+
+直接的双积分法进行了比较，位置误差如图11所示。使用运动约束显著减少位置漂移。运行一分钟后，双积分的位置误差超过500米，而基于运动学的方法将误差保持在1.1米以
+内。
+\end_layout
+
+\begin_layout Standard
+Fig.
+ 11.
+ Local kinematic constraints yield lower position error.
+\end_layout
+
+\begin_layout Standard
+这种位置跟踪方法只在几秒钟内有效。它可能是对其他传感系统的补充；但是，在目前的形式下，它作为一种独立技术是不够的。未来研究的可能性包括使用更精确的加速度计，并试
+验更强大的运动约束和有限的运动。
+\end_layout
+
+\begin_layout Section
+结论
+\end_layout
+
+\begin_layout Standard
+我们提出了一种使用低成本MEMS传感器的头部跟踪方法，并将其部署在数万个虚拟现实头戴式设备中。该系统的关键方面是对头部运动的快速响应、精确预测、漂移校正和基本位
+置信息。未来最大的挑战是使用MEMS传感器或类似的低成本技术在较长的时间间隔内获得可靠的位置估计。在我们最新的原型中，我们通过将本文中的技术与观察Rift表面红
+外发光二极管的摄像机的位置数据相结合，以直接的方式实现了这一点。
+\end_layout
+
+\begin_layout Section
+REFERENCES
+\end_layout
+
+\begin_layout Standard
+[1] S.
+ A.
+ Zekavat and R.
+ M.
+ Buehrer, Handbook of Position Location.
+ IEEE Press and Wiley, 2012.
+\end_layout
+
+\begin_layout Standard
+[2] G.
+ Welch and E.
+ Foxlin, “Motion tracking: no silver bullet, but a respectable arsenal,”
+ IEEE Computer Graphics and Applications, vol.
+ 22, no.
+ 6, pp.
+ 24–38, 2002.
+\end_layout
+
+\begin_layout Standard
+[3] S.
+ Sastry, Nonlinear Systems: Analysis, Stability, and Control.
+ Berlin: Springer-Verlag, 1999.
+\end_layout
+
+\begin_layout Standard
+[4] D.
+ Titterton and J.
+ Weston, Strapdown Inertial Navigation Tech- nology, 2nd ed.
+ Institution of Engineering and Technology, Oct.
+ 2004.
+\end_layout
+
+\begin_layout Standard
+[5] S.
+ M.
+ LaValle, Sensing and Filtering: A Fresh Perspective Based on Preimages
+ and Information Spaces, ser.
+ Foundations and Trends in Robotics Series.
+ Delft, The Netherlands: Now Publishers, 2012, vol.
+ 1: 4.
+\end_layout
+
+\begin_layout Standard
+[6] A.-J.
+ Baerveldt and R.
+ Klang, “A low-cost and low-weight attitude estimation system for an autonomous
+ helicopter,” in IEEE Inter- national Conference on Intelligent Engineering
+ Systems, 1997, pp.
+ 391–395.
+\end_layout
+
+\begin_layout Standard
+[7] J.
+ Favre, B.
+ Jolles, O.
+ Siegrist, and K.
+ Aminian, “Quaternion-based fusion of gyroscopes and accelerometers to improve
+ 3D angle measurement,” Electronics Letters, vol.
+ 42, no.
+ 11, pp.
+ 612–614, 2006.
+\end_layout
+
+\begin_layout Standard
+[8] W.
+ Higgins, “A comparison of complementary and Kalman fil- tering,” IEEE Transacti
+ons on Aerospace and Electronic Systems, vol.
+ AES-11, no.
+ 3, pp.
+ 321–325, 1975.
+\end_layout
+
+\begin_layout Standard
+[9] D.
+ G.-E.
+ amd G.
+ H.
+ Elkaim, J.
+ D.
+ Powell, and B.
+ W.
+ Parkin- son, “Calibration of strapdown magnetometers in magnetic field
+ domain,” Journal of Aerospace Engineering, vol.
+ 19, no.
+ 2, pp.
+ 87–102, 2006.
+\end_layout
+
+\begin_layout Standard
+[10] M.
+ Abrash, “Latency: the sine qua non of AR and VR,” Dec.
+ 2012.
+ [Online].
+ Available: http://blogs.valvesoftware.com/abrash/latency- the-sine-qua-non-of-ar-
+and-vr/
+\end_layout
+
+\begin_layout Standard
+[11] J.
+ Carmack, “Latency mitigation strategies,” Feb.
+ 2013.
+ [Online].
+ Available: http://www.altdevblogaday.com/2013/02/22/latency- mitigation-strategie
+s/
+\end_layout
+
+\begin_layout Standard
+[12] R.
+ T.
+ Azuma, “Predictive tracking for augmented reality,” Ph.D.
+ dissertation, University of North Carolina at Chapel Hill, Chapel Hill,
+ NC, USA, 1995.
+\end_layout
+
+\begin_layout Standard
+[13] U.
+ H.
+ List, “Nonlinear prediction of head movements for helmet- mounted displays,”
+ Operations Training Division Air Force Human Resources Laboratory, Tech.
+ Rep., Dec.
+ 1983.
+\end_layout
+
+\begin_layout Standard
+[14] B.
+ R.
+ Smith Jr., “Digital head tracking and position prediction for helmet mounted
+ visual display systems,” in AIAA 22nd Aerospace Sciences Meeting, Reno,
+ NV, 1984.
+\end_layout
+
+\begin_layout Standard
+[15] S.
+ Ovaska and S.
+ Valiviita, “Angular acceleration measurement: a review,” IEEE Transactions
+ on Instrumentation and Measurement, vol.
+ 47, no.
+ 5, pp.
+ 1211–1217, 1998.
+\end_layout
+
+\end_body
+\end_document

@@ -1,0 +1,1684 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass ctex-article
+\begin_preamble
+% 如果没有这一句命令，XeTeX会出错，原因参见
+% http://bbs.ctex.org/viewthread.php?tid=60547
+\DeclareRobustCommand\nobreakspace{\leavevmode\nobreak\ }
+\end_preamble
+\options UTF8,fontset=founder
+\use_default_options true
+\maintain_unincluded_children false
+\language chinese-simplified
+\language_package none
+\inputencoding utf8-plain
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts true
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures false
+\graphics default
+\default_output_format pdf4
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref true
+\pdf_title "Google Cardboard的九轴融合算法 --- 基于李群的扩展卡尔曼滤波"
+\pdf_author "极品巧克力"
+\pdf_bookmarks true
+\pdf_bookmarksnumbered false
+\pdf_bookmarksopen false
+\pdf_bookmarksopenlevel 1
+\pdf_breaklinks true
+\pdf_pdfborder false
+\pdf_colorlinks false
+\pdf_backref false
+\pdf_pdfusetitle true
+\papersize a4paper
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+\begin_inset CommandInset href
+LatexCommand href
+name "Google Cardboard的九轴融合算法 — 基于李群的扩展卡尔曼滤波"
+target "https://www.cnblogs.com/ilekoaiq/p/8710812.html"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Author
+\begin_inset CommandInset href
+LatexCommand href
+name "极品巧克力"
+target "https://www.cnblogs.com/ilekoaiq/"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Date
+2018-04-15
+\end_layout
+
+\begin_layout Section
+前言
+\end_layout
+
+\begin_layout Standard
+九轴融合算法是指通过融合IMU中的加速度计（三轴）、陀螺仪（三轴）、磁场计（三轴），来获取物体姿态的方法。它是开发VR头显中的一个至关重要的部分。VR头显必须要
+实时准确地获取用户头部的姿态，然后在屏幕上渲染出在对应的姿态所应该要看到的画面，才能让用户在VR世界里获得沉浸感。
+\end_layout
+
+\begin_layout Standard
+因为人眼是非常精密的器官，如果渲染出来的画面稍微有一点点的延时或者偏差，人眼都能察觉出来，导致用户头晕想吐，再也不相信VR了。所以，VR头显对九轴融合算法的实时
+性和精度提出了非常高的要求。
+\end_layout
+
+\begin_layout Standard
+而另一方面，公开的九轴融合方法又少之又少，常见的就是互补滤波算法和Madgwick算法，但是这两个方法的精度都不能达到VR头显的要求。而精度高的九轴融合算法都掌
+握在一些算法公司手里，需要向他们支付高昂的算法使用费，源码的价格更是天价。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename Cardboard-figure1.png
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Cardboard是谷歌在2014年发布的VR盒子，虽然它不是开源的，但是在GitHub上有很多Cardboard的反编译工程，比如
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://github.com/rsanchezsaez/cardboard-java
+\end_layout
+
+\end_inset
+
+。Cardboard的VR体验，可以在一定程度上，证明它的九轴融合算法是满足VR要求的。所以，我对Cardboard反编译工程中的九轴融合部分的程序进行了研读，
+这部分的程序大概有5000行左右。我在通读完程序之后，结合文献[1],把程序背后的算法理论公式全部都反推出来，总结成了本文，与各位分享。
+\end_layout
+
+\begin_layout Standard
+虽然早在2014年，Cardboard就已经在GitHub上被反编译了，但是这么多年过去了，有关它的代码原理分析的文章却是几乎没有。能结合源代码，把它背后的算法
+理论基础详细推导出来的，本文应该算是第一篇。如有推导错误的地方，还请各位不吝赐教。
+\end_layout
+
+\begin_layout Standard
+本文目标读者：传感器融合算法工程师。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+预测
+\end_layout
+
+\begin_layout Standard
+基于陀螺仪积分来预测出下一个姿态。
+\end_layout
+
+\begin_layout Standard
+假设在
+\begin_inset Formula $k-1$
+\end_inset
+
+时刻的状态的
+\begin_inset Formula $SO3$
+\end_inset
+
+形式
+\begin_inset Formula $X_{k-1}$
+\end_inset
+
+的概率满足高斯分布，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+X_{k-1} & =\mu_{k-1|k-1}\exp\left(\xi_{k-1|k-1}^{\wedge}\right)\qquad\xi_{k-1|k-1}\sim N\left(m_{k-1|k-1}=0,P_{k-1|k-1}\right)\\
+\rho\left(X_{k-1}\right) & =a\exp\left(-\dfrac{1}{2}\left(\log\left(\left(\mu_{k-1|k-1}\right)^{-1}X_{k-1}\right)^{\vee}\right)^{T}\left(P_{k-1|k-1}\right)^{-1}\log\left(\left(\mu_{k-1|k-1}\right)^{-1}X_{k-1}\right)^{\vee}\right)\\
+ & =a\exp\left(-\dfrac{1}{2}\left(\xi_{k-1|k-1}-0\right)^{T}\left(P_{k-1|k-1}\right)^{-1}\left(\xi_{k-1|k-1}-0\right)\right)
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+其中
+\begin_inset Formula $a$
+\end_inset
+
+为归一化常数。为方便起见，把满足上面条件的
+\begin_inset Formula $X_{k-1}$
+\end_inset
+
+表示成，
+\begin_inset Formula $X_{k-1}\sim N\left(\mu_{k-1|k-1},P_{k-1|k-1}\right)$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Standard
+在
+\begin_inset Formula $k-1$
+\end_inset
+
+时刻，陀螺仪的测量值为
+\begin_inset Formula $\omega_{k-1}$
+\end_inset
+
+，如果没有噪声的话，则对下一个时刻
+\begin_inset Formula $k$
+\end_inset
+
+的状态均值的预测
+\begin_inset Formula $\mu_{k-1|k-1}$
+\end_inset
+
+为，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\mu_{k|k-1}=\mu_{k-1|k-1}\exp\left(\left(\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\label{eq:1}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+其中，
+\begin_inset Formula $\Delta t_{k-1}$
+\end_inset
+
+为时刻
+\begin_inset Formula $k-1$
+\end_inset
+
+到时刻
+\begin_inset Formula $k$
+\end_inset
+
+的时间间隔，
+\begin_inset Formula $\Delta t_{k-1}=t_{k}-t_{k-1}$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Standard
+而如果考虑噪声的影响的话，则对时刻
+\begin_inset Formula $k$
+\end_inset
+
+的预测的状态分布
+\begin_inset Formula $X_{k|k-1}$
+\end_inset
+
+要满足，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+X_{k|k-1}=X_{k-1}\exp\left(\left(\left(\omega_{k-1}+n_{k-1}\right)\Delta t_{k-1}\right)^{\wedge}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+其中，
+\begin_inset Formula $n_{k-1}$
+\end_inset
+
+表示陀螺仪数据的噪声，协方差
+\begin_inset Formula $R_{k-1}$
+\end_inset
+
+可以通过采集一段时间的数据
+\begin_inset Formula $n_{k-1}$
+\end_inset
+
+，计算得到
+\begin_inset Formula $R_{k-1}=E\left(n_{k-1}\left(n_{k-1}\right)^{T}\right)$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Standard
+所以，新的均值
+\begin_inset Formula $\mu_{k|k-1}$
+\end_inset
+
+附近的扰动
+\begin_inset Formula $\xi_{k|k-1}$
+\end_inset
+
+要满足这样的分布，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+\exp\left(\xi_{k|k-1}^{\wedge}\right) & =\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\exp\left(\xi_{k-1|k-1}^{\wedge}\right)\exp\left(\left(\left(\omega_{k-1}+n_{k-1}\right)\Delta t_{k-1}\right)^{\wedge}\right)\\
+ & =\exp\left(\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}\right)^{\wedge}\right)\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\exp\left(\left(\left(\omega_{k-1}+n_{k-1}\right)\Delta t_{k-1}\right)^{\wedge}\right)\\
+ & \approx\exp\left(\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}\right)^{\wedge}\right)\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}+J_{r}\left(-\omega_{k-1}\Delta t_{k-1}\right)^{-1}\left(\omega_{k-1}+n_{k-1}\right)\Delta t_{k-1}\right)^{\wedge}\right)\\
+ & =\exp\left(\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}\right)^{\wedge}\right)\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}+J_{r}\left(\omega_{k-1}\Delta t_{k-1}\right)\omega_{k-1}\Delta t_{k-1}+J_{r}\left(\omega_{k-1}\Delta t_{k-1}\right)n_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\\
+ & \approx\exp\left(\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}\right)^{\wedge}\right)\exp\left(\left(J_{r}\left(\omega_{k-1}\Delta t_{k-1}\right)n_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\\
+ & \approx\exp\left(\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}+J_{r}\left(\omega_{k-1}\Delta t_{k-1}\right)n_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\\
+ & \approx\exp\left(\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}+n_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+又因为有
+\begin_inset Formula $SO3$
+\end_inset
+
+上的性质，
+\begin_inset Formula $\exp\left(\phi^{\wedge}\right)^{-1}=\exp\left(\left(-\phi\right)^{\wedge}\right)$
+\end_inset
+
+，所以，上式中的
+\begin_inset Formula $\exp\left(\left(\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)^{-1}=\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)$
+\end_inset
+
+。所以，原式可以转换如下，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\exp\left(\xi_{k|k-1}^{\wedge}\right)=\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\exp\left(\xi_{k-1|k-1}^{\wedge}\right)\exp\left(\left(\left(\omega_{k-1}+n_{k-1}\right)\Delta t_{k-1}\right)^{\wedge}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+这时候，又因为有
+\begin_inset Formula $SO3$
+\end_inset
+
+上的伴随性质，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+\mathrm{R}\exp\left(p^{\wedge}\right)\mathrm{R}^{T} & =\exp\left(\left(Rp\right)^{\wedge}\right)\Rightarrow\\
+\mathrm{R}\exp\left(p^{\wedge}\right) & =\exp\left(\left(Rp\right)^{\wedge}\right)\mathrm{R}
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+原式就可以转换为，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+\exp\left(\xi_{k|k-1}^{\wedge}\right) & =\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\exp\left(\xi_{k-1|k-1}^{\wedge}\right)\exp\left(\left(\left(\omega_{k-1}+n_{k-1}\right)\Delta t_{k-1}\right)^{\wedge}\right)\\
+ & =\exp\left(\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}\right)^{\wedge}\right)\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\exp\left(\left(\left(\omega_{k-1}+n_{k-1}\right)\Delta t_{k-1}\right)^{\wedge}\right)\\
+ & \approx\exp\left(\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}\right)^{\wedge}\right)\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}+J_{r}\left(-\omega_{k-1}\Delta t_{k-1}\right)^{-1}\left(\omega_{k-1}+n_{k-1}\right)\Delta t_{k-1}\right)^{\wedge}\right)\\
+ & =\exp\left(\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}\right)^{\wedge}\right)\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}+J_{r}\left(\omega_{k-1}\Delta t_{k-1}\right)\omega_{k-1}\Delta t_{k-1}+J_{r}\left(\omega_{k-1}\Delta t_{k-1}\right)n_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\\
+ & \approx\exp\left(\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}\right)^{\wedge}\right)\exp\left(\left(J_{r}\left(\omega_{k-1}\Delta t_{k-1}\right)n_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\\
+ & \approx\exp\left(\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}+J_{r}\left(\omega_{k-1}\Delta t_{k-1}\right)n_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\\
+ & \approx\exp\left(\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}+n_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+所以，就可以得到，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\xi_{k|k-1}=\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}+n_{k-1}\Delta t_{k-1}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+所以，新的扰动
+\begin_inset Formula $\xi_{k|k-1}^{\wedge}$
+\end_inset
+
+的均值
+\begin_inset Formula $m_{k|k-1}$
+\end_inset
+
+，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+m_{k|k-1} & =E\left(\xi_{k|k-1}\right)\\
+ & =E\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}+n_{k-1}\Delta t_{k-1}\right)\\
+ & =\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)E\left(\xi_{k-1|k-1}\right)\\
+ & =0
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+新的扰动
+\begin_inset Formula $\xi_{k|k-1}^{\wedge}$
+\end_inset
+
+的协方差，
+\begin_inset Formula $P_{k|k-1}$
+\end_inset
+
+，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+P_{k|k-1} & =E\left(\left(\xi_{k|k-1}-m_{k|k-1}\right)\left(\xi_{k|k-1}-m_{k|k-1}\right)^{T}\right)\\
+ & =E\left(\xi_{k|k-1}\left(\xi_{k|k-1}\right)^{T}\right)\\
+ & =E\left(\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}+n_{k-1}\Delta t_{k-1}\right)\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}+n_{k-1}\Delta t_{k-1}\right)^{T}\right)\\
+ & =E\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}\left(\xi_{k-1|k-1}\right)^{T}\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)^{T}\right)\\
+ & +E\left(\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\xi_{k-1|k-1}\left(n_{k-1}\right)^{T}\Delta t_{k-1}\right)\\
+ & +E\left(n_{k-1}\Delta t_{k-1}\left(\xi_{k-1|k-1}\right)^{T}\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)^{T}\right)\\
+ & +E\left(n_{k-1}\Delta t_{k-1}\left(n_{k-1}\right)^{T}\Delta t_{k-1}\right)\\
+ & =\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)E\left(\xi_{k-1|k-1}\left(\xi_{k-1|k-1}\right)^{T}\right)\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)^{T}\\
+ & +\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)E\left(\xi_{k-1|k-1}\left(n_{k-1}\right)^{T}\right)\Delta t_{k-1}\\
+ & +\Delta t_{k-1}E\left(n_{k-1}\left(\xi_{k-1|k-1}\right)^{T}\right)\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)^{T}\\
+ & +\Delta t_{k-1}E\left(n_{k-1}\left(n_{k-1}\right)^{T}\right)\Delta t_{k-1}\\
+ & =\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)E\left(\xi_{k-1|k-1}\left(\xi_{k-1|k-1}\right)^{T}\right)\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)^{T}+\Delta t_{k-1}E\left(n_{k-1}\left(n_{k-1}\right)^{T}\right)\Delta t_{k-1}\\
+ & =\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)P_{k-1|k-1}\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)^{T}+\Delta t_{k-1}R_{k-1}\Delta t_{k-1}
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+所以，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+P_{k|k-1}=\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)P_{k-1|k-1}\exp\left(\left(-\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)^{T}+\Delta t_{k-1}R_{k-1}\Delta t_{k-1}\label{eq:2}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+所以，最终得到，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+X_{k|k-1}=\mu_{k|k-1}\exp\left(\xi_{k|k-1}^{\wedge}\right)\sim N\left(\mu_{k|k-1},P_{k|k-1}\right)\qquad\xi_{k|k-1}\sim N\left(0,P_{k|k-1}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+更新
+\end_layout
+
+\begin_layout Standard
+设在世界坐标系下，加速度计所测的重力向量为
+\begin_inset Formula $g_{w}$
+\end_inset
+
+，磁场计所测的磁场向量为
+\begin_inset Formula $\gamma_{w}$
+\end_inset
+
+。则在时刻
+\begin_inset Formula $k$
+\end_inset
+
+时，加速度计所测的重力向量为
+\begin_inset Formula $g_{k}$
+\end_inset
+
+，磁场计所测的磁场向量为
+\begin_inset Formula $\gamma_{k}$
+\end_inset
+
+。加速度计上面的测量噪声
+\begin_inset Formula $n_{g_{k}}$
+\end_inset
+
+满足
+\begin_inset Formula $n_{g_{k}}\sim N\left(0,Q_{g_{k}}\right)$
+\end_inset
+
+。磁场计上面的测量噪声
+\begin_inset Formula $n_{\gamma_{k}}$
+\end_inset
+
+满足
+\begin_inset Formula $n_{\gamma_{k}}\sim N\left(0,Q_{\gamma_{k}}\right)$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Subsection
+加速度计测量更新
+\end_layout
+
+\begin_layout Standard
+把第一部分预测出来的姿态
+\begin_inset Formula $\mu_{k|k-1}$
+\end_inset
+
+，作为预测的测量姿态，可以预测出当前加速度计的测量值
+\begin_inset Formula $g_{k|k-1}$
+\end_inset
+
+，其计算过程如下，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+g_{w} & =\mu_{k|k-1}g_{k|k-1}\Rightarrow\\
+g_{k|k-1} & =\left(\mu_{k|k-1}\right)^{-1}g_{w}\\
+ & =\left(\mu_{k|k-1}\right)^{T}g_{w}
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+而根据实际测量值
+\begin_inset Formula $g_{k}$
+\end_inset
+
+，可以反过来计算出姿态
+\begin_inset Formula $\mu_{g_{k}}$
+\end_inset
+
+，作为实际的测量姿态。以之前的预测姿态
+\begin_inset Formula $\mu_{k|k-1}$
+\end_inset
+
+为初值，则把两者的关系表示为，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\mu_{g_{k}}=\mu_{k|k-1}\exp\left(\left(\xi_{g_{k|k-1},g_{k}}\right)^{\wedge}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+可以把
+\begin_inset Formula $\xi_{g_{k|k-1},g_{k}}$
+\end_inset
+
+优化出来，或者直接叉乘出来。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+g_{w} & =\mu_{g_{k}}g_{k}\Rightarrow\\
+g_{w} & =\mu_{k|k-1}\exp\left(\left(\xi_{g_{k|k-1},g_{k}}\right)^{\wedge}\right)g_{k}\\
+\left(\mu_{k|k-1}\right)^{-1}g_{w} & =\exp\left(\left(\xi_{g_{k|k-1},g_{k}}\right)^{\wedge}\right)g_{k}\Rightarrow\\
+g_{k|k-1} & =\exp\left(\left(\xi_{g_{k|k-1},g_{k}}\right)^{\wedge}\right)g_{k}
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+根据李代数与向量叉乘的转换关系。不考虑测量噪声
+\begin_inset Formula $n_{g_{k}}$
+\end_inset
+
+，则可以得到
+\begin_inset Formula $\xi_{g_{k|k-1},g_{k}}$
+\end_inset
+
+的均值
+\begin_inset Formula $m_{g_{k|k-1},g_{k}}$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+c & =\dfrac{g_{k}}{\left\Vert g_{k}\right\Vert }\times\dfrac{g_{k|k-1}}{\left\Vert g_{k|k-1}\right\Vert }\\
+\left\Vert c\right\Vert  & =\left\Vert \dfrac{g_{k}}{\left\Vert g_{k}\right\Vert }\right\Vert \cdot\left\Vert \dfrac{g_{k|k-1}}{\left\Vert g_{k|k-1}\right\Vert }\right\Vert \sin\theta=\sin\theta\Rightarrow\\
+\theta & =\arcsin\left(\left\Vert c\right\Vert \right)=\arcsin\left(\dfrac{g_{k}}{\left\Vert g_{k}\right\Vert }\times\dfrac{g_{k|k-1}}{\left\Vert g_{k|k-1}\right\Vert }\right)\Rightarrow\\
+m_{g_{k|k-1},g_{k}} & =\dfrac{c}{\left\Vert c\right\Vert }\theta\\
+ & =\left(\dfrac{g_{k}}{\left\Vert g_{k}\right\Vert }\times\dfrac{g_{k|k-1}}{\left\Vert g_{k|k-1}\right\Vert }\right)\dfrac{1}{\left\Vert \dfrac{g_{k}}{\left\Vert g_{k}\right\Vert }\right\Vert \cdot\left\Vert \dfrac{g_{k|k-1}}{\left\Vert g_{k|k-1}\right\Vert }\right\Vert }\arcsin\left(\left\Vert \dfrac{g_{k}}{\left\Vert g_{k}\right\Vert }\right\Vert \cdot\left\Vert \dfrac{g_{k|k-1}}{\left\Vert g_{k|k-1}\right\Vert }\right\Vert \right)
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+设
+\begin_inset Formula $\xi_{g_{k|k-1},g_{k}}$
+\end_inset
+
+上的噪声为
+\begin_inset Formula $n_{\xi}$
+\end_inset
+
+，则关系满足如下，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\xi_{g_{k|k-1},g_{k}}=m_{g_{k|k-1},g_{k}}+n_{\xi}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+进一步得到，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+\xi_{g_{k|k-1},g_{k}} & =m_{g_{k|k-1},g_{k}}+n_{\xi}\\
+ & =\left(\dfrac{g_{k}+n_{g_{k}}}{\left\Vert g_{k}+n_{g_{k}}\right\Vert }\times\dfrac{g_{k|k-1}}{\left\Vert g_{k|k-1}\right\Vert }\right)\dfrac{1}{\left\Vert \dfrac{g_{k}+n_{g_{k}}}{\left\Vert g_{k}+n_{g_{k}}\right\Vert }\right\Vert \cdot\left\Vert \dfrac{g_{k|k-1}}{\left\Vert g_{k|k-1}\right\Vert }\right\Vert }\arcsin\left(\left\Vert \dfrac{g_{k}+n_{g_{k}}}{\left\Vert g_{k}+n_{g_{k}}\right\Vert }\right\Vert \cdot\left\Vert \dfrac{g_{k|k-1}}{\left\Vert g_{k|k-1}\right\Vert }\right\Vert \right)
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+要获得
+\begin_inset Formula $n_{\xi}$
+\end_inset
+
+与之
+\begin_inset Formula $n_{g_{k}}$
+\end_inset
+
+间的关系，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+n_{\xi} & =f\left(n_{g_{k}}\right)\\
+ & =\left(\dfrac{g_{k}+n_{g_{k}}}{\left\Vert g_{k}+n_{g_{k}}\right\Vert }\times\dfrac{g_{k|k-1}}{\left\Vert g_{k|k-1}\right\Vert }\right)\dfrac{1}{\left\Vert \dfrac{g_{k}+n_{g_{k}}}{\left\Vert g_{k}+n_{g_{k}}\right\Vert }\right\Vert \cdot\left\Vert \dfrac{g_{k|k-1}}{\left\Vert g_{k|k-1}\right\Vert }\right\Vert }\arcsin\left(\left\Vert \dfrac{g_{k}+n_{g_{k}}}{\left\Vert g_{k}+n_{g_{k}}\right\Vert }\right\Vert \cdot\left\Vert \dfrac{g_{k|k-1}}{\left\Vert g_{k|k-1}\right\Vert }\right\Vert \right)-m_{g_{k|k-1},g_{k}}
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+这两者间的关系不是线性化的，那么就只能进行线性化，一阶泰勒展开，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+n_{\xi} & =\left.f\left(n_{g_{k}}\right)\right|_{n_{g_{k}}\to0}+\left.\dfrac{\partial f\left(n_{g_{k}}\right)}{\partial n_{g_{k}}}\right|_{n_{g_{k}}\to0}n_{g_{k}}\\
+ & =\left.\dfrac{\partial f\left(n_{g_{k}}\right)}{\partial n_{g_{k}}}\right|_{n_{g_{k}}\to0}n_{g_{k}}\\
+ & =F_{n_{g_{k}}}n_{g_{k}}
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+其中，
+\begin_inset Formula $F_{n_{g_{k}}}=\left.\dfrac{\partial f\left(n_{g_{k}}\right)}{\partial n_{g_{k}}}\right|_{n_{g_{k}}\to0}$
+\end_inset
+
+的计算，采用数值扰动的方法。
+\end_layout
+
+\begin_layout Standard
+从而，可以得到
+\begin_inset Formula $Q_{g_{k|k-1},g_{k}}$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q_{g_{k|k-1},g_{k}}=E\left(\left(\xi_{g_{k|k-1},g_{k}}-m_{g_{k|k-1},g_{k}}\right)\left(\xi_{g_{k|k-1},g_{k}}-m_{g_{k|k-1},g_{k}}\right)^{T}\right)=E\left(n_{\xi}n_{\xi}^{T}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+最终得到，
+\begin_inset Formula $\xi_{g_{k|k-1},g_{k}}$
+\end_inset
+
+的分布，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\xi_{g_{k|k-1},g_{k}}\sim N\left(m_{g_{k|k-1},g_{k}},Q_{g_{k|k-1},g_{k}}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+再进行转换，用跟第一部分同样的方法，转换出扰动
+\begin_inset Formula $\xi_{Z_{k}}$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+Z_{k} & =\mu_{k|k-1}\exp\left(\xi_{g_{k|k-1},g_{k}}^{\wedge}\right)\\
+ & =\mu_{k|k-1}\exp\left(m_{g_{k|k-1},g_{k}}^{\wedge}\right)\exp\left(\xi_{Z_{k}}^{\wedge}\right)\\
+\xi_{Z_{k}} & \sim N\left(0,Q_{k}\right)
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+用
+\begin_inset Formula $z_{k}$
+\end_inset
+
+来表示。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+z_{k} & =\mu_{k|k-1}\exp\left(m_{g_{k|k-1},g_{k}}^{\wedge}\right)\\
+Z_{k} & =z_{k}\exp\left(\xi_{z_{k}}^{\wedge}\right)\sim N\left(z_{k},Q_{k}\right)
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+所以，根据第一部分，可以得到
+\begin_inset Formula $\mu_{k|k-1}$
+\end_inset
+
+，现在又得到了
+\begin_inset Formula $z_{k}$
+\end_inset
+
+。综合这两者的信息，可以得到，
+\begin_inset Formula $\rho\left(\mu_{k}|\mu_{k|k-1},z_{k}\right)$
+\end_inset
+
+。就是要求一个
+\begin_inset Formula $\mu_{k}$
+\end_inset
+
+，使得
+\begin_inset Formula $\rho\left(\mu_{k}|\mu_{k|k-1},z_{k}\right)$
+\end_inset
+
+最大，用公式表达如下。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+\hat{\mu}_{k} & =\arg\max_{\mu_{k}}\rho\left(\mu_{k}|\mu_{k|k-1},z_{k}\right)\\
+ & =\arg\max_{\mu_{k}}\dfrac{\rho\left(\mu_{k}|\mu_{k|k-1}\right)\rho\left(z_{k}|\mu_{k|k-1}\right)}{\rho\left(z_{k}|\mu_{k|k-1}\right)}\\
+ & =\arg\max_{\mu_{k}}\rho\left(\mu_{k}|\mu_{k|k-1}\right)\rho\left(z_{k}|\mu_{k}\right)\\
+ & =\arg\max_{\mu_{k}}\exp\left(-\dfrac{1}{2}\left(\left(\log\left(\mu_{k|k-1}^{-1}\mu_{k}\right)^{\vee}\right)^{T}P_{k|k-1}^{-1}\log\left(\mu_{k|k-1}^{-1}\mu_{k}\right)^{\vee}\right)\right)\exp\left(-\dfrac{1}{2}\left(\left(\log\left(\mu_{k}^{-1}z_{k}\right)^{\vee}\right)^{T}Q_{k}^{-1}\log\left(\mu_{k}^{-1}z_{k}\right)^{\vee}\right)\right)
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+其中，
+\begin_inset Formula $\mu_{k}$
+\end_inset
+
+是个未知数，用
+\begin_inset Formula $\mu_{k}=\mu_{k|k-1}\exp\left(\xi^{\wedge}\right)$
+\end_inset
+
+，转换成用未知数
+\begin_inset Formula $\xi$
+\end_inset
+
+来表示。然后，上式就可以转换为，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+\hat{\mu}_{k}= & \exp\left(-\dfrac{1}{2}\left(\left(\log\left(\mu_{k|k-1}^{-1}\left(\mu_{k|k-1}\exp\left(\xi^{\wedge}\right)\right)\right)^{\vee}\right)^{T}P_{k|k-1}^{-1}\log\left(\mu_{k|k-1}^{-1}\left(\mu_{k|k-1}\exp\left(\xi^{\wedge}\right)\right)\right)^{\vee}\right)\right)\\
+ & \exp\left(-\dfrac{1}{2}\left(\left(\log\left(\left(\mu_{k|k-1}\exp\left(\xi^{\wedge}\right)\right)^{-1}z_{k}\right)^{\vee}\right)^{T}Q_{k}^{-1}\log\left(\left(\mu_{k|k-1}\exp\left(\xi^{\wedge}\right)\right)^{-1}z_{k}\right)^{\vee}\right)\right)\\
+= & \exp\left(-\dfrac{1}{2}\left(\left(\xi-0\right)^{T}P_{k|k-1}^{-1}\left(\xi-0\right)\right)\right)\exp\left(-\dfrac{1}{2}\left(\left(\log\left(\left(\mu_{k|k-1}\exp\left(\xi^{\wedge}\right)\right)^{-1}z_{k}\right)^{\vee}\right)^{T}Q_{k}^{-1}\log\left(\left(\mu_{k|k-1}\exp\left(\xi^{\wedge}\right)\right)^{-1}z_{k}\right)^{\vee}\right)\right)
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+但这样子也解不出来。对上式中的部分，在
+\begin_inset Formula $\xi=0$
+\end_inset
+
+处进行线性化，一阶泰勒展开。则可以转换为，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+a\left(\xi\right) & =\xi-0=\xi\\
+b\left(\xi\right) & =\log\left(\left(\mu_{k|k-1}\exp\left(\xi^{\wedge}\right)\right)^{-1}z_{k}\right)^{\vee}\\
+J & =\left.\dfrac{\partial b\left(\xi\right)}{\partial\xi}\right|_{\xi\to0}\\
+ & =\left.\dfrac{\partial\log\left(\left(\mu_{k|k-1}\exp\left(\xi^{\wedge}\right)\right)^{-1}\exp\left(m_{g_{k|k-1},g_{k}}^{\wedge}\right)\right)^{\vee}}{\partial\xi}\right|_{\xi\to0}\\
+ & =\left.\dfrac{\partial\log\left(\exp\left(\xi^{\wedge}\right)z_{k}\right)^{\vee}}{\partial\xi}\right|_{\xi\to0}\\
+b\left(\xi\right) & =b\left(0\right)+J\left(\xi-0\right)\\
+ & =m_{z_{k}}+J\xi
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+其中，
+\begin_inset Formula $J$
+\end_inset
+
+的计算，程序里面是用数值扰动的方法。这里应该也可以用解析的方法，把公式都展开来推导。
+\end_layout
+
+\begin_layout Standard
+接下来，为了转换成卡尔曼滤波的形式，用
+\begin_inset Formula $H=-J$
+\end_inset
+
+来表示。
+\end_layout
+
+\begin_layout Standard
+所以，原式就可以表示为，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{array}{l}
+\rho\left(\mu_{k}|\mu_{k|k-1},z_{k}\right)\\
+\wasypropto\exp\left(-\dfrac{1}{2}\left(\left(\xi-0\right)^{T}P_{k|k-1}^{-1}\left(\xi-0\right)\right)\right)\exp\left(-\dfrac{1}{2}\left(\left(m_{z_{k}}-H\xi\right)^{T}Q_{k}^{-1}\left(m_{z_{k}}-H\xi\right)\right)\right)
+\end{array}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+参考《State Estimation for Robotics》的第3.1.2和3.3.2节，求
+\begin_inset Formula $\arg\max\limits _{\mu_{k}}\rho\left(\mu_{k}|\mu_{k|k-1},z_{k}\right)$
+\end_inset
+
+，则上式最终可以转换出卡尔曼滤波的形式了。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\begin{cases}
+K_{k}=P_{k|k-1}H_{k}^{T}\left(H_{k}P_{k|k-1}H_{k}^{T}+Q_{k}\right)^{-1}\\
+m_{k|k}^{-}=0+K_{k}\left(m_{z_{k}}-0\right)\\
+P_{k|k}^{-}=\left(I-K_{k}H_{k}\right)P_{k|k-1}
+\end{cases}\label{eq:3}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+所以，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\xi_{k|k}^{-}\sim N\left(m_{k|k}^{-},P_{k|k-1}^{-}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+同时，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+P_{k|k-1}^{-}=E\left(\left(\xi_{k|k}^{-}-m_{k|k}^{-}\right)\left(\xi_{k|k}^{-}-m_{k|k}^{-}\right)^{T}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+则融合后的姿态的均值
+\begin_inset Formula $\mu_{k|k}$
+\end_inset
+
+为，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\mu_{k|k}=\mu_{k|k-1}\exp\left(\left(m_{k|k}^{-}\right)^{\wedge}\right)\label{eq:4}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+设相对于姿态
+\begin_inset Formula $\mu_{k|k}$
+\end_inset
+
+的李代数扰动。则
+\begin_inset Formula $\xi_{k|k}$
+\end_inset
+
+与
+\begin_inset Formula $\xi_{k|k}^{-}$
+\end_inset
+
+的关系要满足，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+\mu_{k|k}\exp\left(\left(\xi_{k|k}\right)^{\wedge}\right) & =\mu_{k|k-1}\exp\left(\left(\xi_{k|k}^{-}\right)^{\wedge}\right)\Rightarrow\\
+\xi_{k|k} & =\log\left(\mu_{k|k}^{-1}\mu_{k|k-1}\exp\left(\left(\xi_{k|k}^{-}\right)^{\wedge}\right)\right)^{\vee}\\
+ & =\log\left(\left(\mu_{k|k-1}\exp\left(\left(m_{k|k}^{-}\right)^{\wedge}\right)\right)^{-1}\mu_{k|k-1}\exp\left(\left(\xi_{k|k}^{-}\right)^{\wedge}\right)\right)^{\vee}\\
+ & =\log\left(\left(\exp\left(\left(m_{k|k}^{-}\right)^{\wedge}\right)\right)^{-1}\mu_{k|k-1}^{-1}\mu_{k|k-1}\exp\left(\left(\xi_{k|k}^{-}\right)^{\wedge}\right)\right)^{\vee}\\
+ & =\log\left(\exp\left(\left(-m_{k|k}^{-}\right)^{\wedge}\right)\exp\left(\left(\xi_{k|k}^{-}\right)^{\wedge}\right)\right)^{\vee}\\
+ & =\log\left(\exp\left(\left(-m_{k|k}^{-}+J_{r}\left(-m_{k|k}^{-}\right)^{-1}\xi_{k|k}^{-}\right)^{\wedge}\right)\right)^{\vee}\\
+ & =-m_{k|k}^{-}+J_{r}\left(m_{k|k}^{-}\right)\xi_{k|k}^{-}
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+所以，得到扰动
+\begin_inset Formula $\xi_{k|k}$
+\end_inset
+
+的均值
+\begin_inset Formula $m_{k|k}$
+\end_inset
+
+，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+m_{k|k} & =E\left(\xi_{k|k}\right)\\
+ & =E\left(-m_{k|k}^{-}+J_{r}\left(m_{k|k}^{-}\right)\xi_{k|k}^{-}\right)\\
+ & =-m_{k|k}^{-}+J_{r}\left(m_{k|k}^{-}\right)E\left(\xi_{k|k}^{-}\right)\\
+ & =J_{r}\left(m_{k|k}^{-}\right)m_{k|k}^{-}-m_{k|k}^{-}\\
+ & \approx0
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+得到扰动
+\begin_inset Formula $\xi_{k|k}$
+\end_inset
+
+的协方差
+\begin_inset Formula $P_{k|k}$
+\end_inset
+
+，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+P_{k|k} & =E\left(\left(\xi_{k|k}-\left(J_{r}\left(m_{k|k}^{-}\right)m_{k|k}^{-}-m_{k|k}^{-}\right)\right)\left(\xi_{k|k}-\left(J_{r}\left(m_{k|k}^{-}\right)m_{k|k}^{-}-m_{k|k}^{-}\right)\right)^{T}\right)\\
+ & =E\left(\left(-m_{k|k}^{-}+J_{r}\left(m_{k|k}^{-}\right)\xi_{k|k}^{-}-\left(J_{r}\left(m_{k|k}^{-}\right)m_{k|k}^{-}-m_{k|k}^{-}\right)\right)\left(-m_{k|k}^{-}+J_{r}\left(m_{k|k}^{-}\right)\xi_{k|k}^{-}-\left(J_{r}\left(m_{k|k}^{-}\right)m_{k|k}^{-}-m_{k|k}^{-}\right)\right)^{T}\right)\\
+ & =E\left(\left(J_{r}\left(m_{k|k}^{-}\right)\xi_{k|k}^{-}-J_{r}\left(m_{k|k}^{-}\right)m_{k|k}^{-}\right)\left(J_{r}\left(m_{k|k}^{-}\right)\xi_{k|k}^{-}-J_{r}\left(m_{k|k}^{-}\right)m_{k|k}^{-}\right)^{T}\right)\\
+ & =J_{r}\left(m_{k|k}^{-}\right)E\left(\left(\xi_{k|k}^{-}-m_{k|k}^{-}\right)\left(\xi_{k|k}^{-}-m_{k|k}^{-}\right)^{T}\right)J_{r}\left(m_{k|k}^{-}\right)^{T}\\
+ & =J_{r}\left(m_{k|k}^{-}\right)P_{k|k-1}^{-}J_{r}\left(m_{k|k}^{-}\right)^{T}
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage pagebreak
+\end_inset
+
+所以，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+P_{k|k}=J_{r}\left(m_{k|k}^{-}\right)P_{k|k-1}^{-}J_{r}\left(m_{k|k}^{-}\right)^{T}\label{eq:5}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+所以，
+\begin_inset Formula $X_{k}$
+\end_inset
+
+的分布满足，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+X_{k} & =\mu_{k|k-1}\exp\left(\xi_{k|k}\right)\sim N\left(\mu_{k|k-1},P_{k|k}\right)\\
+\xi_{k|k} & \sim N\left(0,P_{k|k}\right)
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+公式总结
+\end_layout
+
+\begin_layout Standard
+前面推导的公式总结出来就是，
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+\hline\hline \mathbf{A.} & \,\mathbf{Time\:Update(``Predict")}\\
+\hline\hline \mathrm{(1)} & \,\mathrm{Project\:the\:state\:ahead,eq.}(\ref{eq:1})\\
+\mu_{k|k-1} & =\mu_{k-1|k-1}\exp\left(\left(\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)\\
+\hline \mathrm{(2)} & \,\mathrm{Project\:the\:error\:covariance\:ahead,eq.(\ref{eq:2})}\\
+P_{k|k-1} & =\exp\left(\left(\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)P_{k-1|k-1}\exp\left(\left(\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)^{T}+\Delta t_{k-1}R_{k-1}\Delta t_{k-1}\\
+\hline \\
+\hline\hline \mathbf{B.} & \mathbf{\,Measurement\:Update(``Correct")}\\
+\hline\hline \mathrm{(1)} & \,\mathrm{Compute\:the\:Kalman\:gain,eq.(\ref{eq:3})}\\
+K_{k} & =P_{k|k-1}H_{k}^{T}\left(H_{k}P_{k|k-1}H_{k}^{T}+Q\right)^{-1}\\
+\hline \mathrm{(2)} & \,\mathrm{Update\:estimate\:with\:measurement\:}z_{k}\mathrm{,eq.(\ref{eq:3})}\\
+m_{k|k}^{-} & =0+K_{k}\left(m_{z_{k}}-0\right)\\
+\hline \mathrm{(3)} & \,\mathrm{Update\:the\:error\:covariance,eq.(\ref{eq:3})}\\
+P_{k|k}^{-} & =\left(I-K_{k}H_{k}\right)P_{k|k-1}\\
+\hline \mathrm{(4)} & \,\mathrm{Project\:the\:state\:ahead\:with\:}m_{k}\mathrm{,eq.(\ref{eq:4})}\\
+\mu_{k|k} & =\mu_{k|k-1}\exp\left(\left(m_{k|k}^{-}\right)^{\wedge}\right)\\
+\hline \mathrm{(5)} & \,\mathrm{Project\:the\:error\:covariance\:ahead\:with\:}m_{k}\mathrm{,eq.(\ref{eq:5})}\\
+P_{k|k} & =J_{r}\left(m_{k|k}^{-}\right)P_{k|k-1}^{-}J_{r}\left(m_{k|k}^{-}\right)^{T}
+\\\hline 
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage pagebreak
+\end_inset
+
+其中各符号含义如下，
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $\mu_{k|k-1}$
+\end_inset
+
+，预测姿态。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $\mu_{k|k}$
+\end_inset
+
+，校正姿态。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $\omega$
+\end_inset
+
+，角速度。对ESKF系统来说，这是控制输入，或称为驱动输入。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $\exp\left(\left(\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)$
+\end_inset
+
+，用驱动角度向量
+\begin_inset Formula $\omega\Delta t$
+\end_inset
+
+计算得到的旋转矩阵。也可以用四元数表示。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $P_{k|k-1}$
+\end_inset
+
+，先验估计误差协方差。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $P_{k|k}$
+\end_inset
+
+，后验估计误差协方差。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $R$
+\end_inset
+
+，测量噪声协方差。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $Q$
+\end_inset
+
+，过程噪声协方差。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $K$
+\end_inset
+
+，卡尔曼增益。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $f()$
+\end_inset
+
+，Process nonlinear vector function 
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $h()$
+\end_inset
+
+ ，Observation nonlinear vector function
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $H$
+\end_inset
+
+，是
+\begin_inset Formula $h()$
+\end_inset
+
+ 相对于状态向量
+\begin_inset Formula $m$
+\end_inset
+
+的偏导数的Jacobian矩阵。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $m_{k|k}^{-}$
+\end_inset
+
+，状态向量。在ESKF系统中，是表示旋转误差的旋转向量。每次迭代都重置为
+\begin_inset Formula $0$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $z_{k}$
+\end_inset
+
+，测量向量。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $m_{z_{k}}$
+\end_inset
+
+，创新向量，或称为残差向量。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $\exp\left(\left(m_{k|k}^{-}\right)^{\wedge}\right)$
+\end_inset
+
+，用误差旋转向量
+\begin_inset Formula $m_{k|k}^{-}$
+\end_inset
+
+计算得到的旋转矩阵。也可以用四元数表示。
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $F$
+\end_inset
+
+，是
+\begin_inset Formula $f()$
+\end_inset
+
+相对于状态向量
+\begin_inset Formula $m$
+\end_inset
+
+的偏导数的Jacobian矩阵。
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+对于驱动角度向量
+\begin_inset Formula $\omega\Delta t$
+\end_inset
+
+，
+\begin_inset Formula $F=\exp\left(\left(\omega_{k-1}\Delta t_{k-1}\right)^{\wedge}\right)$
+\end_inset
+
+。参见公式(
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:2"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+)。
+\end_layout
+
+\begin_layout Itemize
+对于误差旋转向量
+\begin_inset Formula $m_{k|k}^{-}$
+\end_inset
+
+，
+\begin_inset Formula $F=J_{r}\left(m_{k|k}^{-}\right)$
+\end_inset
+
+。参见公式(
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:5"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+)。
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+上面的方法跟《State Estimation for Robotics》的第7.3.4和8.2.4节很像，但是上面的方法，对协方差的处理更加精细。
+\end_layout
+
+\begin_layout Standard
+要融合磁场计，也是同样的方法。
+\end_layout
+
+\begin_layout Standard
+要融合视觉SLAM中送过来的姿态，也是同样的方法。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+实际程序
+\end_layout
+
+\begin_layout Standard
+在cardboard的实际程序中，还有很多细节的处理。比如：
+\end_layout
+
+\begin_layout Itemize
+增加了很多加权滤波的方法。
+\end_layout
+
+\begin_layout Itemize
+把加速度计的模的变化滤波出来，实时更新加速度计的协方差。这一步，相当于是madgwick里面的动态调整权重，但这一步更好，因为是直接算加速度计的协方差来调整权重
+，而不是通过陀螺仪的测量值来间接表示运动过快而调整权重。
+\end_layout
+
+\begin_layout Itemize
+在静止的时候，把陀螺仪的偏移滤波出来。
+\end_layout
+
+\begin_layout Itemize
+还有时间差平滑滤波的方法。
+\end_layout
+
+\begin_layout Standard
+在融合磁场计的时候，把磁场计向量映射到水平面上，相当于只优化水平面上的旋转偏差。这个，在空间想象时，应该保持重力竖直方向
+\begin_inset Formula $(0,0,1)$
+\end_inset
+
+不变，以此作为参考，再看原来的模型，就容易理解了。
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Tabular
+<lyxtabular version="3" rows="1" columns="2">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename Cardboard-figure2a.png
+	scale 60
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename Cardboard-figure2b.png
+	scale 60
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+但是没有对磁场计进行修正。如果要对磁场计进行修正，简单的方法可以参考madgwick里面的方法。全面的方法，则要参考那些专门搞磁场计标定的论文了。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+总结
+\end_layout
+
+\begin_layout Standard
+Cardboard里面的九轴融合算法，效果比Madgwick方法和互补滤波方法都要好，对细节的处理也非常棒。以后再写一篇文章，详细比较基于李群的扩展卡尔曼滤波方
+法，Madgwick算法，互补滤波的异同。
+\end_layout
+
+\begin_layout Standard
+根据参考文献[1]，这套理论也同样可以使用在六自由度（位移+旋转）融合上面，只需要把
+\begin_inset Formula $SO3$
+\end_inset
+
+改成
+\begin_inset Formula $SE3$
+\end_inset
+
+就可以了。可以用同一套理论，把视觉SLAM的位姿与IMU位姿融合在一起，得到融合后的六自由度数据，应用在VR头显中。
+\end_layout
+
+\begin_layout Standard
+希望有一天，VR头显的体验能做到像电影《头号玩家》里面那样。与仍然还在做VR的各位同行共勉。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename Cardboard-figure3.jpg
+	scale 80
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+求赞赏
+\end_layout
+
+\begin_layout Standard
+您觉得，本文值多少？ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename Cardboard-figure4.png
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+有奖问答
+\end_layout
+
+\begin_layout Standard
+给各位出一道思考题。
+\end_layout
+
+\begin_layout Standard
+已知，一个IMU水平地放在桌面上不动。重力大小为
+\begin_inset Formula $g$
+\end_inset
+
+。陀螺仪和加速度计以相同的频率同时输出，输出的时间间隔为
+\begin_inset Formula $\Delta t$
+\end_inset
+
+。它的初始状态为
+\begin_inset Formula $x_{0}$
+\end_inset
+
+。陀螺仪数据的噪声为
+\begin_inset Formula $n_{\omega}$
+\end_inset
+
+，加速度计数据的噪声为
+\begin_inset Formula $n_{a}$
+\end_inset
+
+。
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+x_{0} & \in so(3)\sim N(0,P_{0})\\
+n_{\omega} & \in R^{3}\sim N(0,Q)\\
+n_{a} & \in R^{3}\sim N(0,R)
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+其中，
+\begin_inset Formula $P_{0}$
+\end_inset
+
+，
+\begin_inset Formula $Q$
+\end_inset
+
+，
+\begin_inset Formula $R$
+\end_inset
+
+都为对角矩阵。则随着时间的增长，请问，
+\end_layout
+
+\begin_layout Standard
+（1）这个IMU的后验状态协方差是否会收敛？
+\end_layout
+
+\begin_layout Standard
+（2）如果收敛的话，会收敛到什么值？
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+参考文献
+\end_layout
+
+\begin_layout Enumerate
+Bourmaud G, Megret R, Giremus A, et al.
+ Discrete Extended Kalman Filter on Lie groups[C]\SpecialChar allowbreak
+// Signal Processing Conference.
+ EURASIP, 2013:1-5.
+ 
+\end_layout
+
+\begin_layout Enumerate
+Timothy D.
+ Barfoot.
+ State Estimation for Robotics [M].Cambridge University Press, 2017.
+\end_layout
+
+\end_body
+\end_document
