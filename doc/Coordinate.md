@@ -17,6 +17,7 @@
 * [地磁场传感器](https://developer.android.com/guide/topics/sensors/sensors_position.html#sensors-pos-mag)
 
 ![图 1](https://developer.android.com/images/axis_device.png)
+
 图 1. Sensor API 使用的坐标系（相对于设备）。
 
 关于此坐标系，特别需要注意的一点就是当设备的屏幕方向改变时，坐标轴不会转换，也就是说，传感器的坐标系不会随着设备的移动而改变。此行为与 OpenGL 坐标系的行为是相同的。
@@ -38,6 +39,7 @@
 其中旋转矢量的大小等于 sin(θ/2)，并且旋转矢量的方向等于旋转轴的方向。
 
 ![图 2](https://developer.android.com/images/axis_globe.png)
+
 图 2. 旋转矢量传感器使用的坐标系。
 
 旋转矢量的三个元素等于单位四元数（cos(θ/2)、x*sin(θ/2)、y*sin(θ/2)、z*sin(θ/2)）的最后三个分量。旋转矢量的元素没有单位。x、y 和 z 轴的定义方法与加速传感器的定义方法相同。参考坐标系被定义为直接正交基（见图 2）。该坐标系具有以下特征：
@@ -50,7 +52,7 @@
 
 # CardBoard 坐标系
 
-！[图 3](https://img-blog.csdn.net/20140401183456562)
+![图 3](https://github.com/shuyong/Google-CardBoard-Sensor-Fusion/blob/master/doc/cardboard-ypr.jpg)
 
 # 本项目的坐标系
 
