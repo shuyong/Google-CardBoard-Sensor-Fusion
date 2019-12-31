@@ -75,6 +75,7 @@ void HeadTracker::GetPose(int64_t timestamp_ns,
     predicted_rotation = pose_state.sensor_from_start_rotation;
   }
 
+#if 0
   // In order to update our pose as the sensor changes, we begin with the
   // inverse default orientation (the orientation returned by a reset sensor),
   // apply the current sensor transformation, and then transform into display
@@ -97,6 +98,28 @@ void HeadTracker::GetPose(int64_t timestamp_ns,
   out_orientation[3] = static_cast<float>(rotation.GetQuaternion()[3]);
 
   out_position = ApplyNeckModel(out_orientation, 1.0);
+#else
+  const Rotation ekf_to_head_tracker =
+      Rotation::FromYawPitchRoll(0, -M_PI / 2.0, 0);
+  const Rotation sensor_to_display =
+      Rotation::FromAxisAndAngle(Vector3(1, 0, 0), M_PI / 2.0);
+  const Rotation y_180 =
+      Rotation::FromAxisAndAngle(Vector3(0, 1, 0), M_PI);
+
+  const Vector4 q =
+      (sensor_to_display * predicted_rotation * ekf_to_head_tracker * y_180)
+          .GetQuaternion();
+
+  Rotation rotation;
+  rotation.SetQuaternion(q);
+
+  out_orientation[0] = static_cast<float>(rotation.GetQuaternion()[0]);
+  out_orientation[1] = static_cast<float>(rotation.GetQuaternion()[1]);
+  out_orientation[2] = static_cast<float>(rotation.GetQuaternion()[2]);
+  out_orientation[3] = static_cast<float>(rotation.GetQuaternion()[3]);
+
+  out_position = ApplyNeckModel(out_orientation, 0.0);
+#endif
 }
 
 Rotation HeadTracker::GetDefaultOrientation() const {
