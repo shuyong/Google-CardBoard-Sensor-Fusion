@@ -28,9 +28,9 @@ class OrientationEKF {
 	private: Matrix3x3d mS;		// 创新协方差(Covariance of innovation)，系统不确定性: S = H P H' + R。Covariance of innovation (S in common formulation).
 	private: Matrix3x3d mH;		// 测量 Jacobian 矩阵。Jacobian of the measurements (H in common formulation).
 	private: Matrix3x3d mK;  	// 卡尔曼增益。Gain of the Kalman filter (K in common formulation).
-	private: Vector3d mNu;   // 创新矢量。从预测姿态旋转矩阵，先验得到的创新矢量。Parameter update a.k.a. innovation vector. (\nu in common formulation).
+	private: Vector3d mNu;   // 创新矢量。又称测量残差。Parameter update a.k.a. innovation vector. (\nu in common formulation).
 	private: Vector3d mz;    // 测量矢量。当前测量得到加速度或磁场矢量。Measurement vector (z in common formulation).
-	private: Vector3d mh;    // 测量函数。先验的指向地心矢量(加速度)，或指向水平磁极矢量(磁场强度)。Current prediction vector (g in common formulation).
+	private: Vector3d mh;    // 测量函数。预测旋转后的参考矢量，如旋转后的地心矢量(加速度)，或指向水平磁极矢量(磁场强度)。Current prediction vector (g in common formulation).
 	private: Vector3d mu;    // 当前测量得到微分角度矢量。Control input, currently this is only the gyroscope data (\mu in common formulation).
 	private: Vector3d mx;    // 状态矢量(代表旋转误差的旋转矢量)。后验得到 mx = mK * mNu。Update of the state vector. (x in common formulation).
 	private: Vector3d down;  // 参考矢量，重力矢量，指向地心。
@@ -292,7 +292,7 @@ class OrientationEKF {
 		if (this->alignedToGravity) {
 			// acc: 为了 Jacobian 数值矩阵的观测函数。为求 H matrix。
 			// 观测函数 h() 计算机体坐标系中的参考矢量的预测姿态，
-			// 并与测量矢量 z 计算差异得到创新矢量 ν。
+			// 并与测量矢量 z 计算差异得到创新矢量(测量残差) ν。
 			accObservationFunctionForNumericalJacobian(this->so3SensorFromWorld,
 					this->mNu);
 
@@ -408,7 +408,7 @@ class OrientationEKF {
 		if (this->alignedToNorth) {
 			// mag: 为了 Jacobian 数值矩阵的观测函数。为求 H matrix。
 			// 观测函数 h() 计算机体坐标系中的参考矢量的预测姿态，
-			// 并与测量矢量 z 计算差异得到创新矢量 ν。
+			// 并与测量矢量 z 计算差异得到创新矢量(测量残差) ν。
 			magObservationFunctionForNumericalJacobian(this->so3SensorFromWorld,
 					this->mNu);
 
@@ -574,12 +574,12 @@ class OrientationEKF {
 		// down : 重力矢量，参考矢量。
 		// mh = so3SensorFromWorldPred * down
 		Matrix3x3d::mult(so3SensorFromWorldPred, this->down, this->mh);
-		// 预测的 mh 与测量的 mz 有差异，求从 mh 到 mz 的差异旋转矩阵。
+		// 预测的 mh 与测量的 mz 有差异，求从 mh 到 mz 的差异旋转矩阵 M。
 		// EKF 传统为 : mz - mh。旋转表示为 : mz = M * mh
 		so3Helper.sO3FromTwoVec(this->mh, this->mz,
 				this->accObservationFunctionForNumericalJacobianTempM);
 
-		// resule = 从差异旋转矩阵求出代表创新的旋转矢量 ν
+		// resule = 从差异旋转矩阵求出代表创新(残差)的旋转矢量 ν
 		so3Helper.muFromSO3(this->accObservationFunctionForNumericalJacobianTempM,
 				result);
 	}
@@ -592,12 +592,12 @@ class OrientationEKF {
 		// mh : 预测的磁场矢量, h() is observation nonlinear vector function
 		// mh = so3SensorFromWorldPred * north
 		Matrix3x3d::mult(so3SensorFromWorldPred, this->north, this->mh);
-		// 预测的 mh 与测量的 mz 有差异，求从 mh 到 mz 的差异旋转矩阵。
+		// 预测的 mh 与测量的 mz 有差异，求从 mh 到 mz 的差异旋转矩阵 M。
 		// EKF 传统为 : mz - mh。旋转表示为 : mz = M * mh
 		so3Helper.sO3FromTwoVec(this->mh, this->mz,
 				this->magObservationFunctionForNumericalJacobianTempM);
 
-		// resule = 从差异旋转矩阵求出代表创新的旋转矢量 ν
+		// resule = 从差异旋转矩阵求出代表创新(残差)的旋转矢量 ν
 		so3Helper.muFromSO3(this->magObservationFunctionForNumericalJacobianTempM,
 				result);
 	}
