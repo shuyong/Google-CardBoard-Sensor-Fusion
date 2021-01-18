@@ -22,7 +22,7 @@
 \font_typewriter "default" "default"
 \font_math "auto" "auto"
 \font_default_family default
-\use_non_tex_fonts true
+\use_non_tex_fonts false
 \font_sc false
 \font_osf false
 \font_sf_scale 100 100
@@ -49,7 +49,7 @@
 \pdf_backref false
 \pdf_pdfusetitle true
 \papersize a4paper
-\use_geometry false
+\use_geometry true
 \use_package amsmath 1
 \use_package amssymb 1
 \use_package cancel 1
@@ -74,6 +74,10 @@
 \shortcut idx
 \color #008000
 \end_index
+\leftmargin 25.4mm
+\topmargin 30mm
+\rightmargin 25.4mm
+\bottommargin 30mm
 \secnumdepth 3
 \tocdepth 3
 \paragraph_separation indent
@@ -216,10 +220,6 @@ X_{k-1} & =\mu_{k-1|k-1}\exp\left(\xi_{k-1|k-1}^{\wedge}\right)\qquad\xi_{k-1|k-
 
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
 其中
 \begin_inset Formula $a$
 \end_inset
@@ -263,10 +263,6 @@ X_{k-1} & =\mu_{k-1|k-1}\exp\left(\xi_{k-1|k-1}^{\wedge}\right)\qquad\xi_{k-1|k-
 
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
 其中，
 \begin_inset Formula $\Delta t_{k-1}$
 \end_inset
@@ -306,10 +302,6 @@ X_{k|k-1}=X_{k-1}\exp\left(\left(\left(\omega_{k-1}+n_{k-1}\right)\Delta t_{k-1}
 
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
 其中，
 \begin_inset Formula $n_{k-1}$
 \end_inset
@@ -402,10 +394,6 @@ X_{k|k-1}=X_{k-1}\exp\left(\left(\left(\omega_{k-1}+n_{k-1}\right)\Delta t_{k-1}
 
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
 原式就可以转换为，
 \end_layout
 
@@ -769,10 +757,6 @@ n_{\xi} & =\left.f\left(n_{g_{k}}\right)\right|_{n_{g_{k}}\to0}+\left.\dfrac{\pa
 
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
 其中，
 \begin_inset Formula $F_{n_{g_{k}}}=\left.\dfrac{\partial f\left(n_{g_{k}}\right)}{\partial n_{g_{k}}}\right|_{n_{g_{k}}\to0}$
 \end_inset
@@ -894,10 +878,6 @@ Z_{k} & =z_{k}\exp\left(\xi_{z_{k}}^{\wedge}\right)\sim N\left(z_{k},Q_{k}\right
 
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
 其中，
 \begin_inset Formula $\mu_{k}$
 \end_inset
@@ -948,10 +928,6 @@ b\left(\xi\right) & =b\left(0\right)+J\left(\xi-0\right)\\
 
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
 其中，
 \begin_inset Formula $J$
 \end_inset
@@ -1020,10 +996,6 @@ P_{k|k}^{-}=\left(I-K_{k}H_{k}\right)P_{k|k-1}
 
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
 同时，
 \end_layout
 
