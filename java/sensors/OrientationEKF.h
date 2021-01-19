@@ -19,7 +19,7 @@ class OrientationEKF {
 	private: static constexpr double MIN_ACCEL_NOISE_SIGMA = 0.75D;
 	private: static constexpr double MAX_ACCEL_NOISE_SIGMA = 7.0D;
 	private: double rotationMatrix[16]; // OpenGL 4x4 rotation matrix
-	private: Matrix3x3d so3SensorFromWorld; // 姿态旋转矩阵，body frame。
+	private: Matrix3x3d so3SensorFromWorld; // 姿态旋转矩阵。body frame wrt world frame.
 	private: Matrix3x3d so3LastMotion;      // 微分旋转矩阵。初始化为 I。F : the Jacobian matrix of partial derivatives of f() with respect to x.
 	private: Matrix3x3d mP;		// 估计误差协方差矩阵: P = F P F' + Q。Covariance of Kalman filter state (P in common formulation).
 	private: Matrix3x3d mQ;		// 过程噪声协方差矩阵。Covariance of the process noise (Q in common formulation).
